@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Base
+   ============================================================ */
+@layer base {
+  html {
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    @apply bg-bg text-content font-sans antialiased;
+    background-image:
+      radial-gradient(1200px 600px at 20% -10%, #12202e 0%, transparent 60%),
+      radial-gradient(800px 500px at 90% 10%, #142230 0%, transparent 55%);
+    min-height: 100vh;
+    font-feature-settings: 'cv11', 'ss01', 'tnum';
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #2a3a4f #0f1620;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0f1620;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #2a3a4f, #1e2a3a);
+    border-radius: 999px;
+    border: 2px solid #0f1620;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #3a4a5f, #2a3a4f);
+  }
+
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    appearance: textfield;
+  }
+}
+
+/* ============================================================
+   Componentes utilitários (evoluem junto com o design system)
+   ============================================================ */
+@layer components {
+  .card {
+    @apply rounded-lg border border-border bg-card shadow-card;
+  }
+}
