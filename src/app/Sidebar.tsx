@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, ChevronRight } from 'lucide-react';
+import { Home, ChevronRight, Tags } from 'lucide-react';
 import { MYLIFE_MODULES } from './modules';
 import { useHousehold } from '@/core/household/useHousehold';
 
@@ -61,22 +61,42 @@ export default function Sidebar() {
       <nav className="p-3 flex-1">
         {modules.map((mod) => {
           const Icon = mod.icon;
+          const isFinanceiro = mod.id === 'financeiro';
+
           return (
-            <NavLink
-              key={mod.id}
-              to={mod.path}
-              className={({ isActive }) =>
-                [
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
-                  isActive
-                    ? 'bg-brand-600/15 text-brand-600'
-                    : 'text-content-secondary hover:text-content-primary hover:bg-navy-700/50',
-                ].join(' ')
-              }
-            >
-              <Icon className="w-4 h-4" />
-              {mod.label}
-            </NavLink>
+            <div key={mod.id} className="space-y-1">
+              <NavLink
+                to={mod.path}
+                className={({ isActive }) =>
+                  [
+                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
+                    isActive
+                      ? 'bg-brand-600/15 text-brand-600'
+                      : 'text-content-secondary hover:text-content-primary hover:bg-navy-700/50',
+                  ].join(' ')
+                }
+              >
+                <Icon className="w-4 h-4" />
+                {mod.label}
+              </NavLink>
+
+              {isFinanceiro ? (
+                <NavLink
+                  to="/financeiro/categorias"
+                  className={({ isActive }) =>
+                    [
+                      'ml-6 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition',
+                      isActive
+                        ? 'bg-brand-600/10 text-brand-400'
+                        : 'text-content-secondary hover:text-content-primary hover:bg-navy-700/50',
+                    ].join(' ')
+                  }
+                >
+                  <Tags className="w-3.5 h-3.5" />
+                  Categorias
+                </NavLink>
+              ) : null}
+            </div>
           );
         })}
       </nav>

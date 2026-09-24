@@ -10,6 +10,7 @@ import OnboardingPage from './core/household/pages/OnboardingPage';
 import SelecionarHouseholdPage from './core/household/pages/SelecionarHouseholdPage';
 import PerfilPage from './core/usuarios/pages/PerfilPage';
 import DashboardPage from './modules/financeiro/pages/DashboardPage';
+import CategoriasPage from './modules/financeiro/pages/CategoriasPage';
 
 export const router = createBrowserRouter([
   // ---------- Rotas públicas ----------
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <Navigate to="/financeiro" replace /> },
               { path: 'financeiro', element: <DashboardPage /> },
+              { path: 'financeiro/categorias', element: <CategoriasPage /> },
               { path: 'perfil', element: <PerfilPage /> },
             ],
           },
