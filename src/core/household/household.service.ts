@@ -146,16 +146,28 @@ export async function createHousehold(
   };
 }
 
-export async function deleteHousehold(userId: string, householdId: string): Promise<void> {
-  const { error } = await supabase
+export async function deleteHousehold(
+  userId: string,
+  householdId: string,
+): Promise<Household> {
+  const { data, error } = await supabase
     .from('households')
     .delete()
     .eq('id', householdId)
-    .eq('created_by', userId);
+    .eq('created_by', userId)
+    .select('*');
 
   if (error) {
     throw error;
   }
+
+  if (!data || data.length === 0) {
+    throw new Error(
+      'Não foi possível excluir a família. Verifique se você ainda tem permissão.',
+    );
+  }
+
+  return data[0] as Household;
 }
 
 export const criarHousehold = createHousehold;

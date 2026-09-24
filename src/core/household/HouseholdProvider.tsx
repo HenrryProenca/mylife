@@ -36,6 +36,21 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
     [households, activeHouseholdId],
   );
 
+  const aplicarHouseholds = useCallback((householdList: HouseholdWithMembership[]) => {
+    setHouseholds(householdList);
+
+    const storedActiveId = getStoredActiveHouseholdId();
+    const nextActiveId =
+      storedActiveId === NO_ACTIVE_HOUSEHOLD_ID
+        ? NO_ACTIVE_HOUSEHOLD_ID
+        : storedActiveId && householdList.some((household) => household.id === storedActiveId)
+        ? storedActiveId
+        : householdList[0]?.id ?? null;
+
+    setActiveHouseholdId(nextActiveId);
+    setStoredActiveHouseholdId(nextActiveId);
+  }, []);
+
   const refreshHouseholds = useCallback(async () => {
     if (!user) {
       setHouseholds([]);
@@ -48,18 +63,7 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
 
     try {
       const householdList = await listarHouseholdsDoUsuario(user.id);
-      setHouseholds(householdList);
-
-      const storedActiveId = getStoredActiveHouseholdId();
-      const nextActiveId =
-        storedActiveId === NO_ACTIVE_HOUSEHOLD_ID
-          ? NO_ACTIVE_HOUSEHOLD_ID
-          : storedActiveId && householdList.some((household) => household.id === storedActiveId)
-          ? storedActiveId
-          : householdList[0]?.id ?? null;
-
-      setActiveHouseholdId(nextActiveId);
-      setStoredActiveHouseholdId(nextActiveId);
+      aplicarHouseholds(householdList);
     } catch (error) {
       console.error('[household] erro ao carregar households:', error);
       setHouseholds([]);
@@ -68,7 +72,7 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [aplicarHouseholds, user]);
 
   useEffect(() => {
     if (authLoading) {
@@ -137,19 +141,13 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
 
       try {
         await deleteHouseholdService(user.id, householdId);
-        setHouseholds((previousHouseholds) =>
-          previousHouseholds.filter((household) => household.id !== householdId),
-        );
-
-        if (activeHouseholdId === householdId) {
-          setActiveHouseholdId(null);
-          setStoredActiveHouseholdId(null);
-        }
+        const householdList = await listarHouseholdsDoUsuario(user.id);
+        aplicarHouseholds(householdList);
       } finally {
         setDeleting(false);
       }
     },
-    [activeHouseholdId, user],
+    [aplicarHouseholds, user],
   );
 
   const value = useMemo<HouseholdContextValue>(
@@ -166,7 +164,7 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
       createHousehold,
       deleteHousehold,
     }),
-    [activeHousehold, activeHouseholdId, authLoading, createHousehold, creating, deleting, deleteHousehold, households, loading, refreshHouseholds, setActiveHousehold],
+    [activeHousehold, activeHouseholdId, aplicarHouseholds, authLoading, createHousehold, creating, deleting, deleteHousehold, households, loading, refreshHouseholds, setActiveHousehold],
   );
 
   return (
