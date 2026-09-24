@@ -77,8 +77,8 @@ export default function RedefinirSenhaPage() {
     return (
       <div className="min-h-screen grid place-items-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-full border-[3px] border-border border-t-accent animate-spin" />
-          <div className="text-sm text-content-muted">Verificando link…</div>
+          <div className="w-10 h-10 rounded-full border-[3px] border-navy-600 border-t-brand-400 animate-spin" />
+          <div className="text-sm text-content-secondary">Verificando link…</div>
         </div>
       </div>
     );
@@ -88,15 +88,15 @@ export default function RedefinirSenhaPage() {
     <div className="min-h-screen grid place-items-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-accent to-accent-soft text-[#06121a] mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-[#06121a] mb-4">
             <ShieldCheck className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Definir nova senha</h1>
+          <h1 className="font-display text-h1 font-semibold tracking-tight">Definir nova senha</h1>
         </div>
 
         <form onSubmit={onSubmit} className="card p-6 space-y-4">
           <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-content-muted mb-2">
+            <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
               Nova senha
             </label>
             <input
@@ -105,13 +105,13 @@ export default function RedefinirSenhaPage() {
               minLength={6}
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
-              className="w-full bg-bg-soft border border-border rounded-lg px-3 py-2.5 text-sm outline-none transition focus:border-accent-soft focus:ring-2 focus:ring-accent-soft/20"
+              className="input-base"
               placeholder="Mínimo 6 caracteres"
             />
           </div>
 
           <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-content-muted mb-2">
+            <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
               Confirmar senha
             </label>
             <input
@@ -120,7 +120,7 @@ export default function RedefinirSenhaPage() {
               minLength={6}
               value={confirma}
               onChange={(e) => setConfirma(e.target.value)}
-              className="w-full bg-bg-soft border border-border rounded-lg px-3 py-2.5 text-sm outline-none transition focus:border-accent-soft focus:ring-2 focus:ring-accent-soft/20"
+              className="input-base"
               placeholder="Repita a senha"
             />
           </div>
@@ -128,7 +128,7 @@ export default function RedefinirSenhaPage() {
           <button
             type="submit"
             disabled={carregando}
-            className="w-full bg-gradient-to-br from-accent to-[#16a34a] text-[#04120a] font-semibold py-2.5 rounded-lg transition hover:brightness-105 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="btn-primary w-full"
           >
             {carregando ? 'Salvando…' : 'Salvar nova senha'}
           </button>

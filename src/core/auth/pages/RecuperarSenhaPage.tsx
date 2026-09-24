@@ -28,24 +28,24 @@ export default function RecuperarSenhaPage() {
     <div className="min-h-screen grid place-items-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-accent to-accent-soft text-[#06121a] mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-[#06121a] mb-4">
             <KeyRound className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Recuperar senha</h1>
-          <p className="text-sm text-content-muted mt-1">
+          <h1 className="font-display text-h1 font-semibold tracking-tight">Recuperar senha</h1>
+          <p className="text-sm text-content-secondary mt-1">
             Enviaremos um link de redefinição para o seu email
           </p>
         </div>
 
         {enviado ? (
           <div className="card p-6 text-center">
-            <p className="text-sm text-content-soft">
+            <p className="text-sm text-content-secondary">
               Se o email estiver cadastrado, você receberá um link em alguns
               minutos. Verifique também a caixa de spam.
             </p>
             <Link
               to="/login"
-              className="inline-block mt-4 text-sm text-accent-soft hover:underline"
+              className="inline-block mt-4 text-sm text-brand-400 hover:underline"
             >
               Voltar para o login
             </Link>
@@ -53,7 +53,7 @@ export default function RecuperarSenhaPage() {
         ) : (
           <form onSubmit={onSubmit} className="card p-6 space-y-4">
             <div>
-              <label className="block text-xs uppercase tracking-wider font-semibold text-content-muted mb-2">
+              <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
                 Email
               </label>
               <input
@@ -62,7 +62,7 @@ export default function RecuperarSenhaPage() {
                 autoFocus
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-bg-soft border border-border rounded-lg px-3 py-2.5 text-sm outline-none transition focus:border-accent-soft focus:ring-2 focus:ring-accent-soft/20"
+                className="input-base"
                 placeholder="voce@exemplo.com"
               />
             </div>
@@ -70,7 +70,7 @@ export default function RecuperarSenhaPage() {
             <button
               type="submit"
               disabled={carregando}
-              className="w-full bg-gradient-to-br from-accent to-[#16a34a] text-[#04120a] font-semibold py-2.5 rounded-lg transition hover:brightness-105 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="btn-primary w-full"
             >
               {carregando ? 'Enviando…' : 'Enviar link'}
             </button>
@@ -78,7 +78,7 @@ export default function RecuperarSenhaPage() {
             <div className="text-center">
               <Link
                 to="/login"
-                className="text-sm text-content-muted hover:text-content"
+                className="text-sm text-content-secondary hover:text-content-primary"
               >
                 Voltar para o login
               </Link>

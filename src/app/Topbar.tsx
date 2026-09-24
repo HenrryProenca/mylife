@@ -24,15 +24,15 @@ export default function Topbar() {
   }
 
   return (
-    <header className="h-14 shrink-0 border-b border-border bg-card/40 backdrop-blur-sm flex items-center justify-between px-6">
-      <div className="text-sm text-content-muted">Módulo Financeiro</div>
+    <header className="h-14 shrink-0 border-b border-navy-600 bg-navy-800/40 backdrop-blur-sm flex items-center justify-between px-6">
+      <div className="text-sm text-content-secondary">Módulo Financeiro</div>
 
       <div className="relative">
         <button
           onClick={() => setMenuAberto((v) => !v)}
-          className="flex items-center gap-3 pl-2 pr-3 py-1.5 rounded-lg hover:bg-white/5 transition"
+          className="flex items-center gap-3 pl-2 pr-3 py-1.5 rounded-lg hover:bg-navy-700/50 transition"
         >
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-accent to-accent-soft text-[#06121a] grid place-items-center font-bold text-sm">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 text-[#06121a] grid place-items-center font-bold text-sm">
             {perfil?.avatar_url ? (
               <img
                 src={perfil.avatar_url}
@@ -55,11 +55,11 @@ export default function Topbar() {
               onClick={() => setMenuAberto(false)}
             />
             <div className="absolute right-0 top-full mt-2 w-56 card p-1.5 z-20 animate-fade-in">
-              <div className="px-3 py-2 border-b border-border mb-1">
+              <div className="px-3 py-2 border-b border-navy-600 mb-1">
                 <div className="text-sm font-semibold truncate">
                   {nomeExibicao}
                 </div>
-                <div className="text-xs text-content-muted truncate">
+                <div className="text-xs text-content-secondary truncate">
                   {user?.email}
                 </div>
               </div>
@@ -69,7 +69,7 @@ export default function Topbar() {
                   setMenuAberto(false);
                   navigate('/perfil');
                 }}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-content-soft hover:bg-white/5 hover:text-content transition text-left"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-content-secondary hover:bg-navy-700/50 hover:text-content-primary transition text-left"
               >
                 <UserIcon className="w-4 h-4" />
                 Meu perfil
@@ -77,7 +77,7 @@ export default function Topbar() {
 
               <button
                 onClick={handleLogout}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-state-neg hover:bg-state-neg/10 transition text-left"
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm text-state-error hover:bg-state-error/10 transition text-left"
               >
                 <LogOut className="w-4 h-4" />
                 Sair

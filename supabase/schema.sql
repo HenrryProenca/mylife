@@ -292,6 +292,11 @@ create policy perfis_select on public.perfis
     )
   );
 
+drop policy if exists perfis_insert on public.perfis;
+create policy perfis_insert on public.perfis
+  for insert to authenticated
+  with check ((select auth.uid()) = id);
+
 drop policy if exists perfis_update on public.perfis;
 create policy perfis_update on public.perfis
   for update to authenticated
@@ -302,12 +307,15 @@ create policy perfis_update on public.perfis
 drop policy if exists households_select on public.households;
 create policy households_select on public.households
   for select to authenticated
-  using ( public.is_household_member(id) );
+  using (
+    (select auth.uid()) = created_by
+    or public.is_household_member(id)
+  );
 
 drop policy if exists households_insert on public.households;
 create policy households_insert on public.households
   for insert to authenticated
-  with check ( created_by = auth.uid() );
+  with check ( (select auth.uid()) = created_by );
 
 drop policy if exists households_update on public.households;
 create policy households_update on public.households

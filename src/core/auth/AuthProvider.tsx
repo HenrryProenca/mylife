@@ -8,7 +8,7 @@ import {
 } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
-import { buscarPerfil } from './auth.service';
+import { buscarPerfil, garantirPerfil } from './auth.service';
 import type { AuthState, Perfil } from './types';
 
 export interface AuthContextValue extends AuthState {
@@ -28,7 +28,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      const p = await buscarPerfil(u.id);
+      const perfilSeguro = await garantirPerfil(
+        u.id,
+        u.user_metadata?.nome ?? u.email?.split('@')[0] ?? 'Usuário',
+      );
+      const p = perfilSeguro ?? (await buscarPerfil(u.id));
       setPerfil(p);
     } catch (err) {
       console.error('[auth] erro ao carregar perfil:', err);

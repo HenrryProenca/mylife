@@ -5,6 +5,9 @@ import LoginPage from './core/auth/pages/LoginPage';
 import CadastroPage from './core/auth/pages/CadastroPage';
 import RecuperarSenhaPage from './core/auth/pages/RecuperarSenhaPage';
 import RedefinirSenhaPage from './core/auth/pages/RedefinirSenhaPage';
+import { HouseholdGuard } from './core/household/HouseholdGuard';
+import OnboardingPage from './core/household/pages/OnboardingPage';
+import SelecionarHouseholdPage from './core/household/pages/SelecionarHouseholdPage';
 import PerfilPage from './core/usuarios/pages/PerfilPage';
 import DashboardPage from './modules/financeiro/pages/DashboardPage';
 
@@ -18,16 +21,25 @@ export const router = createBrowserRouter([
   // ---------- Rotas protegidas ----------
   {
     path: '/',
-    element: (
-      <ProtectedRoute>
-        <AppShell />
-      </ProtectedRoute>
-    ),
+    element: <ProtectedRoute />,
     children: [
-      { index: true, element: <Navigate to="/financeiro" replace /> },
-      { path: 'financeiro', element: <DashboardPage /> },
-      { path: 'perfil', element: <PerfilPage /> },
-      // Próximos passos: financeiro/transacoes, financeiro/categorias, etc.
+      { path: 'onboarding', element: <OnboardingPage /> },
+      { path: 'selecionar-familia', element: <SelecionarHouseholdPage /> },
+      {
+        path: '',
+        element: <HouseholdGuard />,
+        children: [
+          {
+            path: '',
+            element: <AppShell />,
+            children: [
+              { index: true, element: <Navigate to="/financeiro" replace /> },
+              { path: 'financeiro', element: <DashboardPage /> },
+              { path: 'perfil', element: <PerfilPage /> },
+            ],
+          },
+        ],
+      },
     ],
   },
 

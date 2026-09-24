@@ -20,8 +20,8 @@ export default function CadastroPage() {
     setCarregando(true);
     try {
       await cadastrarUsuario({ nome, email, senha });
-      toast.success('Conta criada! Bem-vindo ao MyLife.');
-      navigate('/financeiro', { replace: true });
+      toast.success('Conta criada! Faça login para continuar.');
+      navigate('/login', { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao criar conta';
       toast.error(traduzirErro(msg));
@@ -34,18 +34,18 @@ export default function CadastroPage() {
     <div className="min-h-screen grid place-items-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-accent to-accent-soft text-[#06121a] mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-[#06121a] mb-4">
             <UserPlus className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Criar conta</h1>
-          <p className="text-sm text-content-muted mt-1">
+          <h1 className="font-display text-h1 font-semibold tracking-tight">Criar conta</h1>
+          <p className="text-sm text-content-secondary mt-1">
             Comece a organizar sua vida financeira
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="card p-6 space-y-4">
           <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-content-muted mb-2">
+            <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
               Nome
             </label>
             <input
@@ -54,13 +54,13 @@ export default function CadastroPage() {
               autoFocus
               value={nome}
               onChange={(e) => setNome(e.target.value)}
-              className="w-full bg-bg-soft border border-border rounded-lg px-3 py-2.5 text-sm outline-none transition focus:border-accent-soft focus:ring-2 focus:ring-accent-soft/20"
+              className="input-base"
               placeholder="Seu nome"
             />
           </div>
 
           <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-content-muted mb-2">
+            <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
               Email
             </label>
             <input
@@ -68,13 +68,13 @@ export default function CadastroPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-bg-soft border border-border rounded-lg px-3 py-2.5 text-sm outline-none transition focus:border-accent-soft focus:ring-2 focus:ring-accent-soft/20"
+              className="input-base"
               placeholder="voce@exemplo.com"
             />
           </div>
 
           <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-content-muted mb-2">
+            <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
               Senha
             </label>
             <input
@@ -83,7 +83,7 @@ export default function CadastroPage() {
               minLength={6}
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
-              className="w-full bg-bg-soft border border-border rounded-lg px-3 py-2.5 text-sm outline-none transition focus:border-accent-soft focus:ring-2 focus:ring-accent-soft/20"
+              className="input-base"
               placeholder="Mínimo 6 caracteres"
             />
           </div>
@@ -91,15 +91,15 @@ export default function CadastroPage() {
           <button
             type="submit"
             disabled={carregando}
-            className="w-full bg-gradient-to-br from-accent to-[#16a34a] text-[#04120a] font-semibold py-2.5 rounded-lg transition hover:brightness-105 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="btn-primary w-full"
           >
             {carregando ? 'Criando…' : 'Criar conta'}
           </button>
         </form>
 
-        <p className="text-center text-sm text-content-muted mt-6">
+        <p className="text-center text-sm text-content-secondary mt-6">
           Já tem conta?{' '}
-          <Link to="/login" className="text-accent-soft hover:underline">
+          <Link to="/login" className="text-brand-400 hover:underline">
             Entrar
           </Link>
         </p>

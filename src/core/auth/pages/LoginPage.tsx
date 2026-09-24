@@ -10,7 +10,7 @@ export default function LoginPage() {
   const [carregando, setCarregando] = useState(false);
   const navigate = useNavigate();
   const location = useLocation() as { state?: { from?: { pathname: string } } };
-  const destino = location.state?.from?.pathname ?? '/financeiro';
+  const destino = location.state?.from?.pathname ?? '/';
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -31,11 +31,11 @@ export default function LoginPage() {
     <div className="min-h-screen grid place-items-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-accent to-accent-soft text-[#06121a] mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-[#06121a] mb-4">
             <LogIn className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">Entrar no MyLife</h1>
-          <p className="text-sm text-content-muted mt-1">
+          <h1 className="font-display text-h1 font-semibold tracking-tight">Entrar no MyLife</h1>
+          <p className="text-sm text-content-secondary mt-1">
             Acesse sua conta para continuar
           </p>
         </div>
@@ -46,7 +46,7 @@ export default function LoginPage() {
           autoComplete="on"
         >
           <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-content-muted mb-2">
+            <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
               Email
             </label>
             <input
@@ -55,19 +55,19 @@ export default function LoginPage() {
               autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-bg-soft border border-border rounded-lg px-3 py-2.5 text-sm outline-none transition focus:border-accent-soft focus:ring-2 focus:ring-accent-soft/20"
+              className="input-base"
               placeholder="voce@exemplo.com"
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs uppercase tracking-wider font-semibold text-content-muted">
+              <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary">
                 Senha
               </label>
               <Link
                 to="/recuperar-senha"
-                className="text-xs text-accent-soft hover:underline"
+                className="text-xs text-brand-400 hover:underline"
               >
                 Esqueci minha senha
               </Link>
@@ -77,7 +77,7 @@ export default function LoginPage() {
               required
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
-              className="w-full bg-bg-soft border border-border rounded-lg px-3 py-2.5 text-sm outline-none transition focus:border-accent-soft focus:ring-2 focus:ring-accent-soft/20"
+              className="input-base"
               placeholder="••••••••"
             />
           </div>
@@ -85,15 +85,15 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={carregando}
-            className="w-full bg-gradient-to-br from-accent to-[#16a34a] text-[#04120a] font-semibold py-2.5 rounded-lg transition hover:brightness-105 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="btn-primary w-full"
           >
             {carregando ? 'Entrando…' : 'Entrar'}
           </button>
         </form>
 
-        <p className="text-center text-sm text-content-muted mt-6">
+        <p className="text-center text-sm text-content-secondary mt-6">
           Não tem conta?{' '}
-          <Link to="/cadastro" className="text-accent-soft hover:underline">
+          <Link to="/cadastro" className="text-brand-400 hover:underline">
             Criar conta
           </Link>
         </p>

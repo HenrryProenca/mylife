@@ -34,33 +34,33 @@ export default function PerfilPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold tracking-tight">Meu perfil</h1>
-      <p className="text-sm text-content-muted mt-1">
+      <h1 className="font-display text-h1 font-semibold tracking-tight">Meu perfil</h1>
+      <p className="text-sm text-content-secondary mt-1">
         Informações básicas da sua conta
       </p>
 
       <form onSubmit={onSubmit} className="card p-6 mt-6 space-y-4">
         <div>
-          <label className="block text-xs uppercase tracking-wider font-semibold text-content-muted mb-2">
+          <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
             Nome
           </label>
           <input
             type="text"
             value={nome}
             onChange={(e) => setNome(e.target.value)}
-            className="w-full bg-bg-soft border border-border rounded-lg px-3 py-2.5 text-sm outline-none transition focus:border-accent-soft focus:ring-2 focus:ring-accent-soft/20"
+            className="input-base"
           />
         </div>
 
         <div>
-          <label className="block text-xs uppercase tracking-wider font-semibold text-content-muted mb-2">
+          <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
             Email
           </label>
           <input
             type="email"
             value={user?.email ?? ''}
             disabled
-            className="w-full bg-bg-soft border border-border rounded-lg px-3 py-2.5 text-sm text-content-muted cursor-not-allowed"
+            className="input-base text-content-secondary cursor-not-allowed"
           />
           <p className="text-xs text-content-faint mt-1">
             O email não pode ser alterado por aqui.
@@ -71,7 +71,7 @@ export default function PerfilPage() {
           <button
             type="submit"
             disabled={carregando}
-            className="bg-gradient-to-br from-accent to-[#16a34a] text-[#04120a] font-semibold px-4 py-2 rounded-lg transition hover:brightness-105 disabled:opacity-60"
+            className="btn-primary"
           >
             {carregando ? 'Salvando…' : 'Salvar'}
           </button>

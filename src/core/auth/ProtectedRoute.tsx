@@ -1,7 +1,7 @@
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './useAuth';
 
-export function ProtectedRoute({ children }: { children: React.ReactNode }) {
+export function ProtectedRoute() {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
@@ -9,8 +9,8 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen grid place-items-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-full border-[3px] border-border border-t-accent animate-spin" />
-          <div className="text-sm text-content-muted">Carregando…</div>
+          <div className="w-10 h-10 rounded-full border-[3px] border-navy-600 border-t-brand-400 animate-spin" />
+          <div className="text-sm text-content-secondary">Carregando…</div>
         </div>
       </div>
     );
@@ -20,5 +20,5 @@ export function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  return <>{children}</>;
+  return <Outlet />;
 }

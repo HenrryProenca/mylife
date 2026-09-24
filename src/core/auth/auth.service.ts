@@ -56,3 +56,40 @@ export async function buscarPerfil(userId: string): Promise<Perfil | null> {
   if (error) throw error;
   return data;
 }
+
+export async function garantirPerfil(userId: string, nome?: string): Promise<Perfil | null> {
+  const nomeBase = nome?.trim() || 'Usuário';
+
+  const { data: perfilAtual, error: perfilError } = await supabase
+    .from('perfis')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (perfilError) {
+    throw perfilError;
+  }
+
+  if (perfilAtual) {
+    return perfilAtual;
+  }
+
+  const { data: perfilCriado, error: insertError } = await supabase
+    .from('perfis')
+    .upsert(
+      {
+        id: userId,
+        nome: nomeBase,
+        avatar_url: null,
+      },
+      { onConflict: 'id' },
+    )
+    .select('*')
+    .single();
+
+  if (insertError) {
+    throw insertError;
+  }
+
+  return perfilCriado;
+}
