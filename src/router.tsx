@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AppShell from './app/AppShell';
+import HomePage from './app/HomePage';
 import { ProtectedRoute } from './core/auth/ProtectedRoute';
 import LoginPage from './core/auth/pages/LoginPage';
 import CadastroPage from './core/auth/pages/CadastroPage';
@@ -11,6 +12,7 @@ import SelecionarHouseholdPage from './core/household/pages/SelecionarHouseholdP
 import PerfilPage from './core/usuarios/pages/PerfilPage';
 import DashboardPage from './modules/financeiro/pages/DashboardPage';
 import CategoriasPage from './modules/financeiro/pages/CategoriasPage';
+import ListaMercadoPage from './modules/lista-mercado/pages/ListaMercadoPage';
 
 export const router = createBrowserRouter([
   // ---------- Rotas públicas ----------
@@ -34,9 +36,10 @@ export const router = createBrowserRouter([
             path: '',
             element: <AppShell />,
             children: [
-              { index: true, element: <Navigate to="/financeiro" replace /> },
+              { index: true, element: <HomePage /> },
               { path: 'financeiro', element: <DashboardPage /> },
               { path: 'financeiro/categorias', element: <CategoriasPage /> },
+              { path: 'lista-mercado', element: <ListaMercadoPage /> },
               { path: 'perfil', element: <PerfilPage /> },
             ],
           },

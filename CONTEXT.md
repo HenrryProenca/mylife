@@ -1,26 +1,26 @@
 # MyLife — Contexto do Projeto
 
-Este arquivo é a fonte de verdade do projeto. Toda IA, dev ou agente 
-que for trabalhar neste repositório DEVE ler este documento antes de 
+Este arquivo é a fonte de verdade do projeto. Toda IA, dev ou agente
+que for trabalhar neste repositório DEVE ler este documento antes de
 implementar qualquer coisa.
 
 ---
 
 ## 1. O que é o MyLife
 
-MyLife é uma suíte pessoal de organização de vida. O primeiro módulo 
-a ser construído é o *Financeiro*. Futuramente virão Rotina, Estudos, 
-Saúde, Academia, Hábitos e Objetivos — mas NENHUM deles está sendo 
-implementado agora.
+MyLife é uma suíte pessoal de organização de vida. Os módulos ativos
+atualmente são o Financeiro e a Lista de Mercado. Futuramente virão
+Rotina, Estudos, Saúde, Academia, Hábitos e Objetivos.
 
-A arquitetura do projeto é modular e preparada para crescer, mas o 
-único módulo ativo hoje é o Financeiro.
+A arquitetura do projeto é modular e preparada para crescer. A Home é a
+entrada autenticada da ferramenta e apresenta o resumo semanal do tempo
+de uso da plataforma.
 
 ---
 
 ## 2. O que o módulo Financeiro É
 
-O MyLife Financeiro é um *livro-caixa inteligente*. Ele serve para:
+O MyLife Financeiro é um livro-caixa inteligente. Ele serve para:
 
 - Registrar entradas (receitas) e saídas (despesas)
 - Categorizar gastos por tipo e natureza
@@ -37,125 +37,96 @@ O MyLife Financeiro é um *livro-caixa inteligente*. Ele serve para:
 - NÃO controla saldo de conta bancária
 - NÃO faz conciliação bancária
 - NÃO calcula saldo corrente por conta
-- NÃO tem "saldo inicial" de conta
+- NÃO tem saldo inicial de conta
 - NÃO integra com Open Finance
 - NÃO tem cálculo de rendimento por conta
 - NÃO tem extrato de conta
 
-*Atenção:* a tabela contas no banco representa apenas *etiquetas* 
-para saber "de onde saiu o dinheiro" (Nubank, Itaú, Carteira). Ela não 
-tem saldo, não tem cálculo, não tem movimentação.
+A tabela contas representa apenas etiquetas de origem/destino do dinheiro
+(Nubank, Itaú, Carteira). Ela não tem saldo, cálculo ou movimentação.
 
 ---
 
 ## 4. Conceitos do domínio
 
-*Household (Família)*
-Espaço financeiro compartilhado. Todo dado pertence a um household. 
-Um usuário pode participar de múltiplos households. Cada household 
-tem membros com papéis: owner, admin, membro.
+### Household (Família)
 
-*Categoria*
-Classifica cada transação. Tem:
-- tipo: receita | despesa
-- natureza: fixo | variavel | investimento | outro
-- nome, cor, icone
+Espaço financeiro compartilhado. Todo dado pertence a um household. Um
+usuário pode participar de múltiplos households. Cada household tem
+membros com papéis: owner, admin, membro.
 
-Exemplos:
-- Salário → tipo=receita, natureza=outro
-- Aluguel → tipo=despesa, natureza=fixo
-- Supermercado → tipo=despesa, natureza=variavel
-- Tesouro Direto → tipo=despesa, natureza=investimento
+### Categoria
 
-*Conta*
-Etiqueta de origem/destino do dinheiro. Apenas o nome (Nubank, Itaú) 
-e um tipo (conta_corrente, carteira, poupanca, investimento, outro). 
-SEM SALDO, SEM CÁLCULO.
+Classifica cada transação. Tem tipo receita/despesa, natureza
+fixo/variavel/investimento/outro, nome, cor e icone.
 
-*Responsável*
-Pessoa ou entidade responsável pela transação. Ex: Wesley, Gabriella, 
-Casal, Filho, Empresa.
+### Conta
 
-*Transação*
-Cada movimentação financeira. Tem:
-- tipo: receita | despesa
-- valor
-- data
-- descrição
-- observação
-- categoria_id
-- conta_id
-- responsavel_id
-- forma_pagamento (Pix, Cartão de Crédito, Boleto, Dinheiro...)
-- tipo_no_cartao: avista | parcelado (só para gastos no cartão)
-- parcela_atual, parcela_total (só para parcelados)
-- status: pendente | concluida
-- parcelamento_id (agrupador quando é parcela)
+Etiqueta de origem/destino do dinheiro. Tem nome e tipo
+conta_corrente/carteira/poupanca/investimento/outro. Sem saldo ou cálculo.
 
-*Parcelamento*
-Quando o usuário compra algo no cartão em 10x, o sistema cria 
-automaticamente *10 transações*, uma por mês, todas ligadas ao 
-mesmo parcelamento_id. Cada parcela fica com status individual. 
-O usuário só marca cada uma como "concluída" quando paga.
+### Responsável
+
+Pessoa ou entidade responsável pela transação. Ex.: Wesley, Gabriella,
+Casal, Filho ou Empresa.
+
+### Transação
+
+Cada movimentação financeira tem tipo, valor, data, descrição, observação,
+categoria, conta, responsável, forma de pagamento, cartão, parcelamento e
+status pendente/concluida.
+
+### Parcelamento
+
+Quando uma compra é parcelada, o sistema cria automaticamente as
+transações mensais ligadas ao mesmo parcelamento_id. Cada parcela tem
+status individual.
 
 ---
 
-## 5. Modelo de dados (já implementado no Supabase)
+## 5. Modelo de dados do Financeiro
 
 Tabelas em public:
-- perfis — espelho 1:1 de auth.users
-- households — família/grupo
-- household_membros — N:N usuário × household, com papel
-- categorias — categorias por household
-- contas — etiquetas de conta (SEM SALDO)
-- responsaveis — pessoas/entidades responsáveis
-- parcelamentos — agrupador de compras parceladas
-- transacoes — movimentações
 
-Isolamento de dados via *RLS (Row Level Security)*: toda tabela de 
-negócio tem policy is_household_member(household_id).
+- perfis
+- households
+- household_membros
+- categorias
+- contas
+- responsaveis
+- parcelamentos
+- transacoes
+- lista_mercado_itens
+
+O isolamento de dados usa RLS com a função is_household_member(household_id).
 
 ---
 
 ## 6. Arquitetura do código
-src/
-├── app/ → shell, sidebar, topbar, registry de módulos
-├── core/ → auth, household, perfil (transversal)
-├── modules/
-│ └── financeiro/
-│ ├── pages/
-│ ├── components/
-│ ├── hooks/
-│ ├── services/
-│ ├── types/
-│ └── utils/
-├── components/
-│ └── ui/ → design system compartilhado
-├── lib/ → supabase, queryClient, env
-├── hooks/ → hooks genéricos
-└── utils/ → formatadores, helpers
 
-text
+```text
+src/
+├── app/              -> shell, sidebar, topbar, Home e registro de módulos
+├── core/             -> auth, household, perfil e atividade transversal
+├── modules/
+│   ├── financeiro/  -> pages, components, hooks, services, types e utils
+│   └── lista-mercado/ -> pages, components, hooks, services e types
+├── components/ui/    -> design system compartilhado
+├── lib/              -> supabase, queryClient e env
+├── hooks/            -> hooks genéricos
+└── utils/            -> formatadores e helpers
+```
 
 ### Regras invioláveis
 
-1. NENHUM componente chama supabase diretamente. Toda comunicação 
-   com o banco fica em services/. Componentes consomem hooks/.
-
-2. Nenhum import cruzado entre módulos. Se algo precisa ser 
-   compartilhado, vai para core/ ou components/.
-
-3. Isolamento de dados é garantido por RLS. NUNCA filtramos por 
-   user_id no frontend — o banco já bloqueia.
-
-4. Um cliente Supabase único em src/lib/supabase.ts.
-
-5. Sem any. Sem @ts-ignore.
-
-6. Variáveis de ambiente só via import.meta.env.VITE_*.
-
-7. Toda feature tem: tipo em types/, função em services/, hook 
-   em hooks/, componente em components/, página em pages/.
+1. Nenhum componente chama Supabase diretamente. Banco fica em services/.
+2. Nenhum import cruzado entre módulos. Compartilhado vai para core/ ou components/.
+3. Isolamento de dados é garantido por RLS. Nunca filtramos por user_id no frontend.
+4. Existe um único cliente Supabase em src/lib/supabase.ts.
+5. Sem any e sem @ts-ignore.
+6. Variáveis de ambiente somente via import.meta.env.VITE_*.
+7. Toda feature tem tipo em types/, função em services/, hook em hooks/,
+   componente em components/ e página em pages/.
 
 ---
 
@@ -175,48 +146,36 @@ text
 
 ## 8. Roadmap
 
-- Passo 1 — Banco de dados ✅
-- Passo 2 — Esqueleto do projeto ✅
-- Passo 3 — Autenticação ✅
-- Passo 4 — Household / Família ✅ (com exclusão de família)
-- Passo 5 — CRUD de Categorias ⏳ *estamos aqui*
-- Passo 6 — CRUD de Contas e Responsáveis
-- Passo 7 — Transações (versão simples)
-- Passo 8 — Parcelamento (cria N transações)
-- Passo 9 — Dashboard e gráficos
-- Passo 10 — Importação CSV
+- Passos 1 a 4 — Banco, esqueleto, autenticação e Household ✅
+- Passo 5 — CRUD de Categorias ✅
+- Passos 6 a 10 — Contas, responsáveis, transações, parcelamento,
+  dashboard e importação CSV em evolução
 - Passo 11 — Gestão de família (convites, papéis)
 - Passo 12 — Deploy Netlify
+- Passo 13 — Home e Lista de Mercado ⏳ em construção
 
 ---
 
-## 9. Passo 5 — O que está sendo construído AGORA
+## 9. Home e Lista de Mercado — escopo atual
 
-CRUD de *Categorias*. Nada além disso.
+A Home autenticada fica na rota `/` dentro do AppShell. Ela apresenta
+apenas um resumo semanal do tempo que o usuário passou na plataforma,
+medido localmente por usuário neste dispositivo.
 
-Entrega esperada:
-- Página /financeiro/categorias
-- Lista de categorias separadas por tipo (receitas / despesas)
-- Criar, editar, excluir categoria
-- Cada categoria tem: nome, tipo, natureza, cor, ícone
-- Seed automático de categorias padrão ao criar a família
-
-O que *NÃO* faz parte do Passo 5:
-- ❌ Criar tela de contas com saldo
-- ❌ Criar cálculo de saldo
-- ❌ Criar conciliação bancária
-- ❌ Criar transações
-- ❌ Criar dashboard
+Lista de Mercado é um módulo independente na rota `/lista-mercado`. Cada
+item pertence ao household ativo e tem nome, quantidade, observação e
+status pendente ou comprado. A persistência usa a tabela
+`lista_mercado_itens` com RLS por household.
 
 ---
 
 ## 10. Identidade visual
 
-A paleta e tipografia oficiais estão documentadas no manual de marca 
-(pasta /docs ou equivalente, se existir). Os tokens já estão 
-aplicados em tailwind.config.ts e src/styles/globals.css.
+A paleta e tipografia oficiais estão documentadas nos tokens de
+tailwind.config.ts e src/styles/globals.css.
 
 Cores principais:
+
 - Fundo: navy-900 (#081224)
 - Marca: brand-600 (#2f63f2)
 - Texto: content-primary (#f4f7fb)
@@ -224,6 +183,7 @@ Cores principais:
 - Erro: state-error (#e86a6a)
 
 Tipografia:
+
 - Display e títulos: Sora
 - Corpo: Inter
 
@@ -233,11 +193,10 @@ Tipografia:
 
 Antes de qualquer implementação:
 
-1. *Leia este arquivo inteiro.*
-2. *Confirme com o usuário* que entendeu o passo atual.
-3. *Não avance para o próximo passo* sem autorização.
-4. *Não crie funcionalidades não solicitadas.*
-5. *Não reinterprete o domínio.* Se algo parece ambíguo, PERGUNTE.
+1. Leia este arquivo inteiro.
+2. Confirme mentalmente o passo atual do roadmap.
+3. Não avance para passos futuros sem autorização explícita.
+4. Não crie funcionalidades que não foram solicitadas.
+5. Não reinterprete o domínio. Se algo parecer ambíguo, pergunte.
 
-Se você é uma IA lendo isso: leia de novo. O projeto é simples. 
-Não invente complexidade.
+O projeto tem um domínio simples e explícito. Não invente complexidade.

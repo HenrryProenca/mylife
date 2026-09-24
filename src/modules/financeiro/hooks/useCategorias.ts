@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useHousehold } from '@/core/household/useHousehold';
 import {
   listarCategoriasPorHousehold,
+  garantirCategoriasPadrao,
   criarCategoria,
   atualizarCategoria,
   excluirCategoria,
@@ -29,6 +30,7 @@ export function useCategorias() {
         return [] as Categoria[];
       }
 
+      await garantirCategoriasPadrao(householdId);
       return listarCategoriasPorHousehold(householdId);
     },
   });

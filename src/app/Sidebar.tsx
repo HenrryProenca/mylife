@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, ChevronRight, Tags } from 'lucide-react';
+import { ChevronDown, ChevronRight, Home, Menu } from 'lucide-react';
 import { MYLIFE_MODULES } from './modules';
 import { useHousehold } from '@/core/household/useHousehold';
 
@@ -7,6 +8,7 @@ export default function Sidebar() {
   const modules = MYLIFE_MODULES.filter((m) => m.enabled);
   const { activeHousehold, households } = useHousehold();
   const navigate = useNavigate();
+  const [modulesOpen, setModulesOpen] = useState(true);
 
   const hasNoHousehold = households.length === 0;
   const householdLabel = activeHousehold?.nome ?? 'Sem família';
@@ -58,13 +60,22 @@ export default function Sidebar() {
         </button>
       </div>
 
-      <nav className="p-3 flex-1">
-        {modules.map((mod) => {
+      <nav className="flex-1 p-3">
+        <button
+          type="button"
+          onClick={() => setModulesOpen((open) => !open)}
+          className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-content-secondary transition hover:bg-navy-700/60 hover:text-content-primary"
+          aria-expanded={modulesOpen}
+        >
+          <span className="flex items-center gap-2"><Menu className="h-4 w-4 text-brand-400" />Módulos</span>
+          <ChevronDown className={`h-4 w-4 transition-transform ${modulesOpen ? '' : '-rotate-90'}`} />
+        </button>
+
+        {modulesOpen ? modules.map((mod) => {
           const Icon = mod.icon;
-          const isFinanceiro = mod.id === 'financeiro';
 
           return (
-            <div key={mod.id} className="space-y-1">
+            <div key={mod.id}>
               <NavLink
                 to={mod.path}
                 className={({ isActive }) =>
@@ -80,25 +91,9 @@ export default function Sidebar() {
                 {mod.label}
               </NavLink>
 
-              {isFinanceiro ? (
-                <NavLink
-                  to="/financeiro/categorias"
-                  className={({ isActive }) =>
-                    [
-                      'ml-6 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition',
-                      isActive
-                        ? 'bg-brand-600/10 text-brand-400'
-                        : 'text-content-secondary hover:text-content-primary hover:bg-navy-700/50',
-                    ].join(' ')
-                  }
-                >
-                  <Tags className="w-3.5 h-3.5" />
-                  Categorias
-                </NavLink>
-              ) : null}
             </div>
           );
-        })}
+        }) : null}
       </nav>
     </aside>
   );

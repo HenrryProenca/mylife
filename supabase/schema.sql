@@ -168,6 +168,23 @@ create table if not exists public.transacoes (
 comment on table public.transacoes is 'Movimentações. Quando parcelada, cada parcela é uma linha com parcelamento_id.';
 
 -- ============================================================================
+-- 9. LISTA DE MERCADO
+-- ============================================================================
+create table if not exists public.lista_mercado_itens (
+  id             uuid primary key default gen_random_uuid(),
+  household_id   uuid not null references public.households(id) on delete cascade,
+  nome           text not null check (length(trim(nome)) > 0),
+  quantidade     text,
+  observacao     text,
+  status         text not null default 'pendente'
+                 check (status in ('pendente','comprado')),
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+
+comment on table public.lista_mercado_itens is 'Itens da lista de mercado por household.';
+
+-- ============================================================================
 -- ÍNDICES
 -- ============================================================================
 create index if not exists idx_transacoes_household_data        on public.transacoes (household_id, data desc);
@@ -185,6 +202,7 @@ create index if not exists idx_categorias_household             on public.catego
 create index if not exists idx_contas_household                 on public.contas (household_id);
 create index if not exists idx_responsaveis_household           on public.responsaveis (household_id);
 create index if not exists idx_parcelamentos_household          on public.parcelamentos (household_id);
+create index if not exists idx_lista_mercado_household_status  on public.lista_mercado_itens (household_id, status);
 
 -- ============================================================================
 -- TRIGGER: updated_at automático
@@ -206,7 +224,7 @@ begin
   for t in
     select unnest(array[
       'perfis','households','household_membros','categorias',
-      'contas','responsaveis','parcelamentos','transacoes'
+      'contas','responsaveis','parcelamentos','transacoes','lista_mercado_itens'
     ])
   loop
     execute format('drop trigger if exists trg_%I_updated_at on public.%I;', t, t);
@@ -277,6 +295,7 @@ alter table public.contas              enable row level security;
 alter table public.responsaveis        enable row level security;
 alter table public.parcelamentos       enable row level security;
 alter table public.transacoes          enable row level security;
+alter table public.lista_mercado_itens enable row level security;
 
 -- ---------- PERFIS ----------
 drop policy if exists perfis_select on public.perfis;
@@ -412,6 +431,13 @@ create policy parcelamentos_all on public.parcelamentos
 -- ---------- TRANSACOES ----------
 drop policy if exists transacoes_all on public.transacoes;
 create policy transacoes_all on public.transacoes
+  for all to authenticated
+  using ( public.is_household_member(household_id) )
+  with check ( public.is_household_member(household_id) );
+
+-- ---------- LISTA DE MERCADO ----------
+drop policy if exists lista_mercado_itens_all on public.lista_mercado_itens;
+create policy lista_mercado_itens_all on public.lista_mercado_itens
   for all to authenticated
   using ( public.is_household_member(household_id) )
   with check ( public.is_household_member(household_id) );

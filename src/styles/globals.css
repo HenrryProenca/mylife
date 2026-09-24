@@ -93,4 +93,14 @@
     @apply block text-caption uppercase tracking-wider font-medium
            text-content-secondary mb-2;
   }
+
+  .kpi-label {
+    @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-content-secondary;
+  }
+
+  .icon-button {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-navy-600
+           bg-navy-800 text-content-secondary transition hover:border-brand-400 hover:text-content-primary
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
 }

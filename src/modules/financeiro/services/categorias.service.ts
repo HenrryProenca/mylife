@@ -4,6 +4,24 @@ import type {
   CategoriaInsertInput,
   CategoriaUpdateInput,
 } from '../types/categorias.types';
+import { buildSeedCategorias } from '../utils/seedCategorias';
+
+export async function garantirCategoriasPadrao(householdId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('categorias')
+    .select('nome, tipo')
+    .eq('household_id', householdId);
+
+  if (error) throw error;
+
+  const existing = new Set((data ?? []).map((categoria) => `${categoria.tipo}:${categoria.nome}`));
+  const missing = buildSeedCategorias(householdId).filter((categoria) => !existing.has(`${categoria.tipo}:${categoria.nome}`));
+
+  if (missing.length === 0) return;
+
+  const { error: insertError } = await supabase.from('categorias').insert(missing);
+  if (insertError) throw insertError;
+}
 
 export async function listarCategoriasPorHousehold(
   householdId: string,
