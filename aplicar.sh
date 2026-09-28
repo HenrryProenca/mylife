@@ -1,3 +1,27 @@
+#!/usr/bin/env bash
+
+# ============================================================
+# Tarefa: Atualizar .nvmrc e index.html
+# ============================================================
+# O que este script faz:
+# - .nvmrc: muda de "20" para "22" (Supabase 2.117.1 exige Node >= 22)
+# - index.html: atualiza favicon para PNG e theme-color para off-white
+#
+# Arquivos criados: nenhum
+# Arquivos alterados:
+#   - .nvmrc (sobrescrito)
+#   - index.html (sobrescrito)
+# ============================================================
+
+set -e
+
+# --- .nvmrc ---
+cat << 'EOF' > .nvmrc
+22
+EOF
+
+# --- index.html ---
+cat << 'EOF' > index.html
 <!doctype html>
 <html lang="pt-BR">
   <head>
@@ -28,3 +52,12 @@
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+EOF
+
+echo ""
+echo "✅ Pronto."
+echo ""
+echo "Próximos passos:"
+echo "  1. git diff"
+echo "  2. Se estiver OK: git add . && git commit -m \"chore: atualiza .nvmrc para Node 22 e ajusta index.html\" && git push"
+echo ""
