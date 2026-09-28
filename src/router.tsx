@@ -9,6 +9,7 @@ import RedefinirSenhaPage from './core/auth/pages/RedefinirSenhaPage';
 import { HouseholdGuard } from './core/household/HouseholdGuard';
 import OnboardingPage from './core/household/pages/OnboardingPage';
 import SelecionarHouseholdPage from './core/household/pages/SelecionarHouseholdPage';
+import AceitarConvitePage from './core/household/pages/AceitarConvitePage';
 import PerfilPage from './core/usuarios/pages/PerfilPage';
 import DashboardPage from './modules/financeiro/pages/DashboardPage';
 import ListaMercadoPage from './modules/lista-mercado/pages/ListaMercadoPage';
@@ -19,6 +20,7 @@ export const router = createBrowserRouter([
   { path: '/cadastro', element: <CadastroPage /> },
   { path: '/recuperar-senha', element: <RecuperarSenhaPage /> },
   { path: '/redefinir-senha', element: <RedefinirSenhaPage /> },
+  { path: '/aceitar-convite', element: <AceitarConvitePage /> },
 
   // ---------- Rotas protegidas ----------
   {

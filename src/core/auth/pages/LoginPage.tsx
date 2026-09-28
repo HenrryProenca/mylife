@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { LogIn } from 'lucide-react';
 import { loginUsuario } from '../auth.service';
@@ -11,8 +11,14 @@ export default function LoginPage() {
   const [carregando, setCarregando] = useState(false);
   const navigate = useNavigate();
   const location = useLocation() as { state?: { from?: { pathname: string } } };
-  const destino = location.state?.from?.pathname ?? '/';
+  const [searchParams] = useSearchParams();
   const { isAuthenticated, loading } = useAuth();
+
+  // Destino após login: prioridade para ?redirect=, depois location.state.from, depois /
+  const redirectParam = searchParams.get('redirect');
+  const destino = redirectParam
+    ? decodeURIComponent(redirectParam)
+    : location.state?.from?.pathname ?? '/';
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
@@ -101,7 +107,10 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-ink-500 mt-6">
           Não tem conta?{' '}
-          <Link to="/cadastro" className="text-brand-600 hover:underline">
+          <Link
+            to={redirectParam ? `/cadastro?redirect=${encodeURIComponent(redirectParam)}` : '/cadastro'}
+            className="text-brand-600 hover:underline"
+          >
             Criar conta
           </Link>
         </p>
