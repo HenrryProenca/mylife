@@ -1,106 +1,206 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Tarefa: Migrar paleta do main.tsx e HomePage.tsx
+# Tarefa: Migrar paleta dos 4 componentes de UI
 # ============================================================
 # O que este script faz:
-# - main.tsx: Toaster sem theme="dark", cores da paleta off-white
-# - HomePage.tsx: Recharts com hex da paleta nova + tokens atuais
+# - Modal.tsx: fundo branco, textos ink, botões canvas
+# - ConfirmDialog.tsx: remove duplicação do description + paleta
+# - EmptyState.tsx: bullet → ícone Lucide + paleta
+# - Badge.tsx: red-500/yellow-500 → state-error/state-alert
 #
 # Arquivos criados: nenhum
 # Arquivos alterados:
-#   - src/main.tsx (sobrescrito)
-#   - src/app/HomePage.tsx (sobrescrito)
+#   - src/components/ui/Modal.tsx (sobrescrito)
+#   - src/components/ui/ConfirmDialog.tsx (sobrescrito)
+#   - src/components/ui/EmptyState.tsx (sobrescrito)
+#   - src/components/ui/Badge.tsx (sobrescrito)
 # ============================================================
 
 set -e
 
-# --- src/main.tsx ---
-cat << 'EOF' > src/main.tsx
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from 'sonner';
-import { queryClient } from './lib/queryClient';
-import App from './App';
-import './styles/globals.css';
+# --- src/components/ui/Modal.tsx ---
+cat << 'EOF' > src/components/ui/Modal.tsx
+import type { ReactNode } from 'react';
+import { X } from 'lucide-react';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-      <Toaster
-        position="bottom-right"
-        theme="light"
-        toastOptions={{
-          style: {
-            background: '#FFFFFF',
-            border: '1px solid #E5E2D9',
-            color: '#1A2233',
-          },
-        }}
-      />
-    </QueryClientProvider>
-  </React.StrictMode>,
-);
-EOF
-
-# --- src/app/HomePage.tsx ---
-cat << 'EOF' > src/app/HomePage.tsx
-import { Clock3 } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { usePlatformTime } from '@/core/activity/usePlatformTime';
-
-function formatMinutes(minutes: number) {
-  if (minutes < 1) return 'menos de 1 min';
-  const rounded = Math.round(minutes);
-  const hours = Math.floor(rounded / 60);
-  const remaining = rounded % 60;
-  if (hours === 0) return `${remaining} min`;
-  return `${hours}h ${String(remaining).padStart(2, '0')}min`;
+interface ModalProps {
+  open: boolean;
+  title: string;
+  description?: string;
+  children: ReactNode;
+  onClose: () => void;
+  footer?: ReactNode;
+  maxWidth?: string;
 }
 
-export default function HomePage() {
-  const usage = usePlatformTime();
-  const totalMinutes = usage.reduce((total, day) => total + day.minutes, 0);
+export function Modal({
+  open,
+  title,
+  description,
+  children,
+  onClose,
+  footer,
+  maxWidth = 'max-w-lg',
+}: ModalProps) {
+  if (!open) {
+    return null;
+  }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6">
-      <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Início</p>
-        <h1 className="mt-2 font-display text-h1 font-semibold tracking-tight text-ink-900">Resumo da semana</h1>
-        <p className="mt-1 text-body text-ink-500">Acompanhe sua presença dentro do MyLife.</p>
-      </header>
-
-      <section className="card p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4 backdrop-blur-sm">
+      <div
+        className={`w-full ${maxWidth} rounded-2xl border border-canvas-300 bg-white shadow-card-lg`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-canvas-300 px-5 py-4">
           <div>
-            <div className="flex items-center gap-2 text-ink-500">
-              <Clock3 className="h-4 w-4 text-brand-600" />
-              <span className="text-xs font-semibold uppercase tracking-[0.16em]">Tempo na plataforma</span>
-            </div>
-            <p className="mt-3 font-display text-3xl font-semibold tabular-nums text-ink-900">{formatMinutes(totalMinutes)}</p>
-            <p className="mt-1 text-sm text-ink-500">somado de segunda a domingo</p>
+            <h2 id="modal-title" className="font-display text-h3 text-ink-900">
+              {title}
+            </h2>
+            {description ? (
+              <p className="mt-1 text-sm text-ink-500">{description}</p>
+            ) : null}
           </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-ink-500 transition hover:bg-canvas-200 hover:text-ink-900"
+            aria-label="Fechar modal"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="mt-6 h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={usage} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="#E5E2D9" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="label" tick={{ fill: '#5A6478', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#8B93A5', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${value}m`} />
-              <Tooltip
-                cursor={{ fill: 'rgba(88, 114, 201, 0.08)' }}
-                contentStyle={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E2D9', borderRadius: 8 }}
-                formatter={(value) => [formatMinutes(Number(value)), 'Tempo']}
-              />
-              <Bar dataKey="minutes" name="Tempo" fill="#5872C9" radius={[5, 5, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
+        <div className="px-5 py-4">{children}</div>
+
+        {footer ? <div className="border-t border-canvas-300 px-5 py-4">{footer}</div> : null}
+      </div>
     </div>
+  );
+}
+EOF
+
+# --- src/components/ui/ConfirmDialog.tsx ---
+cat << 'EOF' > src/components/ui/ConfirmDialog.tsx
+import { Modal } from './Modal';
+
+interface ConfirmDialogProps {
+  open: boolean;
+  title: string;
+  description: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  danger?: boolean;
+}
+
+export function ConfirmDialog({
+  open,
+  title,
+  description,
+  confirmLabel = 'Confirmar',
+  cancelLabel = 'Cancelar',
+  onConfirm,
+  onCancel,
+  danger = false,
+}: ConfirmDialogProps) {
+  return (
+    <Modal
+      open={open}
+      title={title}
+      onClose={onCancel}
+      maxWidth="max-w-md"
+      footer={
+        <div className="flex items-center justify-end gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-xl border border-canvas-300 bg-white px-4 py-2 text-sm font-medium text-ink-900 transition hover:bg-canvas-200"
+          >
+            {cancelLabel}
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className={`rounded-xl px-4 py-2 text-sm font-medium text-white transition ${
+              danger
+                ? 'bg-state-error hover:brightness-105'
+                : 'bg-brand-600 hover:bg-brand-700'
+            }`}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      }
+    >
+      <div className="text-sm text-ink-500">{description}</div>
+    </Modal>
+  );
+}
+EOF
+
+# --- src/components/ui/EmptyState.tsx ---
+cat << 'EOF' > src/components/ui/EmptyState.tsx
+import type { ReactNode } from 'react';
+import { Inbox } from 'lucide-react';
+
+interface EmptyStateProps {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}
+
+export function EmptyState({ title, description, action }: EmptyStateProps) {
+  return (
+    <div className="card flex flex-col items-center justify-center gap-3 p-8 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-600/10 text-brand-600">
+        <Inbox className="h-6 w-6" />
+      </div>
+
+      <div>
+        <h3 className="font-display text-h3 text-ink-900">{title}</h3>
+        {description ? (
+          <p className="mt-2 text-sm text-ink-500">{description}</p>
+        ) : null}
+      </div>
+
+      {action ? <div className="mt-2">{action}</div> : null}
+    </div>
+  );
+}
+EOF
+
+# --- src/components/ui/Badge.tsx ---
+cat << 'EOF' > src/components/ui/Badge.tsx
+import type { ReactNode } from 'react';
+
+type BadgeVariant = 'brand' | 'success' | 'warning' | 'neutral' | 'danger';
+
+interface BadgeProps {
+  children: ReactNode;
+  variant?: BadgeVariant;
+}
+
+const classesByVariant: Record<BadgeVariant, string> = {
+  brand: 'bg-brand-50 text-brand-700 border-brand-200',
+  success: 'bg-state-success/15 text-state-success border-state-success/30',
+  warning: 'bg-state-alert/15 text-state-alert border-state-alert/30',
+  neutral: 'bg-canvas-200 text-ink-500 border-canvas-300',
+  danger: 'bg-state-error/15 text-state-error border-state-error/30',
+};
+
+export function Badge({ children, variant = 'neutral' }: BadgeProps) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${classesByVariant[variant]}`}
+    >
+      {children}
+    </span>
   );
 }
 EOF
@@ -110,5 +210,5 @@ echo "✅ Pronto."
 echo ""
 echo "Próximos passos:"
 echo "  1. git diff"
-echo "  2. Se estiver OK: git add . && git commit -m \"style: migra paleta de main.tsx e HomePage\" && git push"
+echo "  2. Se estiver OK: git add . && git commit -m \"style: migra paleta dos componentes de UI\" && git push"
 echo ""
