@@ -18,35 +18,35 @@ export default function HomePage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-400">Início</p>
-        <h1 className="mt-2 font-display text-h1 font-semibold tracking-tight">Resumo da semana</h1>
-        <p className="mt-1 text-body text-content-secondary">Acompanhe sua presença dentro do MyLife.</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Início</p>
+        <h1 className="mt-2 font-display text-h1 font-semibold tracking-tight text-ink-900">Resumo da semana</h1>
+        <p className="mt-1 text-body text-ink-500">Acompanhe sua presença dentro do MyLife.</p>
       </header>
 
       <section className="card p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-content-secondary">
-              <Clock3 className="h-4 w-4 text-brand-400" />
+            <div className="flex items-center gap-2 text-ink-500">
+              <Clock3 className="h-4 w-4 text-brand-600" />
               <span className="text-xs font-semibold uppercase tracking-[0.16em]">Tempo na plataforma</span>
             </div>
-            <p className="mt-3 font-display text-3xl font-semibold tabular-nums text-content-primary">{formatMinutes(totalMinutes)}</p>
-            <p className="mt-1 text-sm text-content-secondary">somado de segunda a domingo</p>
+            <p className="mt-3 font-display text-3xl font-semibold tabular-nums text-ink-900">{formatMinutes(totalMinutes)}</p>
+            <p className="mt-1 text-sm text-ink-500">somado de segunda a domingo</p>
           </div>
         </div>
 
         <div className="mt-6 h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={usage} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-              <CartesianGrid stroke="#1f2d4a" strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="label" tick={{ fill: '#aab7cc', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#7a87a1', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${value}m`} />
+              <CartesianGrid stroke="#E5E2D9" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tick={{ fill: '#5A6478', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#8B93A5', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${value}m`} />
               <Tooltip
-                cursor={{ fill: 'rgba(118, 164, 255, 0.08)' }}
-                contentStyle={{ backgroundColor: '#0c1428', border: '1px solid #1f2d4a', borderRadius: 8 }}
+                cursor={{ fill: 'rgba(88, 114, 201, 0.08)' }}
+                contentStyle={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E2D9', borderRadius: 8 }}
                 formatter={(value) => [formatMinutes(Number(value)), 'Tempo']}
               />
-              <Bar dataKey="minutes" name="Tempo" fill="#2f63f2" radius={[5, 5, 0, 0]} />
+              <Bar dataKey="minutes" name="Tempo" fill="#5872C9" radius={[5, 5, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
