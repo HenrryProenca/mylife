@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { garantirPerfil } from '@/core/auth/auth.service';
 import { buildSeedCategorias } from '@/modules/financeiro/utils/seedCategorias';
+import { buildSeedResponsaveis } from '@/modules/financeiro/utils/seedResponsaveis';
 import type {
   CreateHouseholdInput,
   Household,
@@ -145,18 +146,28 @@ export async function createHousehold(
     const seedCategorias = buildSeedCategorias(household.id);
 
     if (seedCategorias.length > 0) {
-      const { error: seedError } = await supabase.from('categorias').insert(seedCategorias);
+      const { error: seedCategoriasError } = await supabase.from('categorias').insert(seedCategorias);
 
-      if (seedError) {
-        throw seedError;
+      if (seedCategoriasError) {
+        throw seedCategoriasError;
       }
     }
-  } catch (error) {
+
+    const seedResponsaveis = buildSeedResponsaveis(household.id);
+
+    if (seedResponsaveis.length > 0) {
+      const { error: seedResponsaveisError } = await supabase.from('responsaveis').insert(seedResponsaveis);
+
+      if (seedResponsaveisError) {
+        throw seedResponsaveisError;
+      }
+    }
+  } catch {
     await supabase.from('household_membros').delete().eq('household_id', household.id);
     await supabase.from('households').delete().eq('id', household.id);
 
     throw new Error(
-      'Não foi possível criar as categorias padrão da família. A criação foi cancelada.',
+      'Não foi possível criar as categorias e responsáveis padrão da família. A criação foi cancelada.',
     );
   }
 

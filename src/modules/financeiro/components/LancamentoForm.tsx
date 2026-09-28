@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useCategorias } from '../hooks/useCategorias';
 import { useContas } from '../hooks/useContas';
+import { useResponsaveis } from '../hooks/useResponsaveis';
 import type { LancamentoTipo, TransacaoFormValues } from '../types/transacoes.types';
 
 const schema = z.object({
@@ -13,6 +14,7 @@ const schema = z.object({
   observacao: z.string(),
   categoria_id: z.string(),
   conta_id: z.string(),
+  responsavel_id: z.string(),
   forma_pagamento: z.enum(['pix', 'cartao_credito', 'cartao_debito', 'boleto', 'dinheiro', 'transferencia', 'outro']),
   status: z.enum(['pendente', 'concluida']),
   parcela_atual: z.number().nullable(),
@@ -21,7 +23,7 @@ const schema = z.object({
 
 const emptyValues: TransacaoFormValues = {
   tipo: 'receita', valor: 0, data: new Date().toISOString().slice(0, 10), descricao: '', observacao: '',
-  categoria_id: '', conta_id: '', forma_pagamento: 'transferencia', status: 'concluida', parcela_atual: null, parcela_total: null,
+  categoria_id: '', conta_id: '', responsavel_id: '', forma_pagamento: 'transferencia', status: 'concluida', parcela_atual: null, parcela_total: null,
 };
 
 interface LancamentoFormProps {
@@ -38,6 +40,7 @@ const tipoLabels: Record<LancamentoTipo, string> = {
 export function LancamentoForm({ initialValues, isSubmitting = false, onSubmit, onCancel }: LancamentoFormProps) {
   const { categorias } = useCategorias();
   const { contas } = useContas();
+  const { responsaveis } = useResponsaveis();
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<TransacaoFormValues>({ defaultValues: { ...emptyValues, ...initialValues } });
   const tipo = watch('tipo');
   const categoriaId = watch('categoria_id');
@@ -78,6 +81,16 @@ export function LancamentoForm({ initialValues, isSubmitting = false, onSubmit, 
         <Field label="Valor (R$)"><input type="number" min="0" step="0.01" {...register('valor', { valueAsNumber: true })} className="input-base" placeholder="0,00" />{errors.valor ? <ErrorText>{errors.valor.message}</ErrorText> : null}</Field>
         <div className="flex items-end"><button type="submit" disabled={isSubmitting} className="btn-primary flex w-full items-center justify-center">{isSubmitting ? '...' : 'Lançar'}</button></div>
       </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <Field label="Responsável">
+          <select {...register('responsavel_id')} className="input-base">
+            <option value="">Sem responsável</option>
+            {responsaveis.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
+          </select>
+        </Field>
+      </div>
+
       {tipo === 'cartao' ? <div className="grid gap-3 sm:grid-cols-3"><Field label="Parcela atual"><input type="number" min="1" {...register('parcela_atual', { valueAsNumber: true })} className="input-base" placeholder="1" /></Field><Field label="Total de parcelas"><input type="number" min="2" {...register('parcela_total', { valueAsNumber: true })} className="input-base" placeholder="10" /></Field><Field label="Status"><select {...register('status')} className="input-base"><option value="concluida">Concluído</option><option value="pendente">Pendente</option></select></Field></div> : null}
       <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-ink-500">{tipo === 'cartao' && parcelaTotal && parcelaTotal > 1 ? `Serão criadas ${parcelaTotal} parcelas mensais.` : 'Registre receitas, gastos, cartões ou investimentos.'}</p><div className="flex gap-3">{onCancel ? <button type="button" onClick={onCancel} className="btn-ghost">Cancelar</button> : null}<button type="button" className="btn-ghost" onClick={() => reset({ ...emptyValues, ...initialValues })}>Limpar</button></div></div>
     </form>

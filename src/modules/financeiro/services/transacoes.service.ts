@@ -14,7 +14,7 @@ export async function listarTransacoes(
 ): Promise<Transacao[]> {
   let query = supabase
     .from('transacoes')
-    .select('*, categoria:categorias(nome, natureza, cor), conta:contas(nome, instituicao)')
+    .select('*, categoria:categorias(nome, natureza, cor), conta:contas(nome, instituicao), responsavel:responsaveis(nome)')
     .eq('household_id', householdId)
     .order('data', { ascending: false })
     .order('created_at', { ascending: false });
@@ -53,6 +53,7 @@ function transactionPayload(
     observacao: values.observacao.trim() || null,
     categoria_id: values.categoria_id || null,
     conta_id: values.conta_id || null,
+    responsavel_id: values.responsavel_id || null,
     forma_pagamento: values.forma_pagamento,
     tipo_no_cartao: values.tipo === 'cartao'
       ? (isParcelado(values) ? 'parcelado' : 'avista')
@@ -73,7 +74,7 @@ export async function criarTransacao(input: TransacaoInsertInput): Promise<Trans
     const { data, error } = await supabase
       .from('transacoes')
       .insert(transactionPayload(householdId, userId, input, input.data, null, null, null))
-      .select('*, categoria:categorias(nome, natureza, cor), conta:contas(nome, instituicao)')
+      .select('*, categoria:categorias(nome, natureza, cor), conta:contas(nome, instituicao), responsavel:responsaveis(nome)')
       .single();
 
     if (error) throw error;
@@ -95,6 +96,7 @@ export async function criarTransacao(input: TransacaoInsertInput): Promise<Trans
       data_primeira_parcela: input.data,
       categoria_id: input.categoria_id || null,
       conta_id: input.conta_id || null,
+      responsavel_id: input.responsavel_id || null,
       forma_pagamento: input.forma_pagamento,
       observacao: input.observacao.trim() || null,
       created_by: userId,
@@ -119,7 +121,7 @@ export async function criarTransacao(input: TransacaoInsertInput): Promise<Trans
   const { data, error } = await supabase
     .from('transacoes')
     .insert(rows)
-    .select('*, categoria:categorias(nome, natureza, cor), conta:contas(nome, instituicao)')
+    .select('*, categoria:categorias(nome, natureza, cor), conta:contas(nome, instituicao), responsavel:responsaveis(nome)')
     .order('parcela_atual', { ascending: true });
 
   if (error) throw error;
@@ -141,6 +143,7 @@ export async function atualizarTransacao(
       observacao: values.observacao.trim() || null,
       categoria_id: values.categoria_id || null,
       conta_id: values.conta_id || null,
+      responsavel_id: values.responsavel_id || null,
       forma_pagamento: values.forma_pagamento,
       status: values.status,
     })

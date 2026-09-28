@@ -31,6 +31,7 @@ export interface Transacao {
   tipo_no_cartao: 'avista' | 'parcelado' | null;
   categoria?: { nome: string; natureza: CategoriaNatureza; cor: string | null } | null;
   conta?: { nome: string; instituicao: string | null } | null;
+  responsavel?: { nome: string } | null;
 }
 
 export interface TransacaoFormValues {
@@ -41,6 +42,7 @@ export interface TransacaoFormValues {
   observacao: string;
   categoria_id: string;
   conta_id: string;
+  responsavel_id: string;
   forma_pagamento: FormaPagamento;
   status: TransacaoStatus;
   parcela_atual: number | null;
