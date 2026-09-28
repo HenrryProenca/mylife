@@ -1,8 +1,17 @@
 import { addMonths } from 'date-fns';
 import { supabase } from '@/lib/supabase';
-import type { LancamentoTipo, Transacao, TransacaoFormValues, TransacaoInsertInput } from '../types/transacoes.types';
+import type {
+  LancamentoTipo,
+  Transacao,
+  TransacaoFormValues,
+  TransacaoInsertInput,
+} from '../types/transacoes.types';
 
-export async function listarTransacoes(householdId: string, inicio?: string, fim?: string): Promise<Transacao[]> {
+export async function listarTransacoes(
+  householdId: string,
+  inicio?: string,
+  fim?: string,
+): Promise<Transacao[]> {
   let query = supabase
     .from('transacoes')
     .select('*, categoria:categorias(nome, natureza, cor), conta:contas(nome, instituicao)')
@@ -26,7 +35,15 @@ function isParcelado(values: TransacaoFormValues) {
   return values.tipo === 'cartao' && (values.parcela_total ?? 0) > 1;
 }
 
-function transactionPayload(householdId: string, userId: string, values: TransacaoFormValues, data: string, parcelamentoId: string | null, parcelaAtual: number | null, parcelaTotal: number | null) {
+function transactionPayload(
+  householdId: string,
+  userId: string,
+  values: TransacaoFormValues,
+  data: string,
+  parcelamentoId: string | null,
+  parcelaAtual: number | null,
+  parcelaTotal: number | null,
+) {
   return {
     household_id: householdId,
     tipo: databaseType(values.tipo),
@@ -37,7 +54,9 @@ function transactionPayload(householdId: string, userId: string, values: Transac
     categoria_id: values.categoria_id || null,
     conta_id: values.conta_id || null,
     forma_pagamento: values.forma_pagamento,
-    tipo_no_cartao: values.tipo === 'cartao' ? (isParcelado(values) ? 'parcelado' : 'avista') : null,
+    tipo_no_cartao: values.tipo === 'cartao'
+      ? (isParcelado(values) ? 'parcelado' : 'avista')
+      : null,
     parcelamento_id: parcelamentoId,
     parcela_atual: parcelaAtual,
     parcela_total: parcelaTotal,
@@ -47,14 +66,13 @@ function transactionPayload(householdId: string, userId: string, values: Transac
 }
 
 export async function criarTransacao(input: TransacaoInsertInput): Promise<Transacao> {
-  return criarLancamento(input.household_id, input.created_by, input);
-}
+  const { household_id: householdId, created_by: userId } = input;
 
-export async function criarLancamento(householdId: string, userId: string, values: TransacaoFormValues): Promise<Transacao> {
-  if (!isParcelado(values)) {
+  // --- Lançamento simples (não parcelado) ---
+  if (!isParcelado(input)) {
     const { data, error } = await supabase
       .from('transacoes')
-      .insert(transactionPayload(householdId, userId, values, values.data, null, null, null))
+      .insert(transactionPayload(householdId, userId, input, input.data, null, null, null))
       .select('*, categoria:categorias(nome, natureza, cor), conta:contas(nome, instituicao)')
       .single();
 
@@ -62,21 +80,23 @@ export async function criarLancamento(householdId: string, userId: string, value
     return data as Transacao;
   }
 
-  const total = values.parcela_total as number;
-  const valorParcela = values.valor / total;
+  // --- Lançamento parcelado ---
+  const total = input.parcela_total as number;
+  const valorParcela = input.valor / total;
+
   const { data: parcelamento, error: parcelamentoError } = await supabase
     .from('parcelamentos')
     .insert({
       household_id: householdId,
-      descricao: values.descricao.trim() || 'Compra parcelada',
-      valor_total: values.valor,
+      descricao: input.descricao.trim() || 'Compra parcelada',
+      valor_total: input.valor,
       valor_parcela: valorParcela,
       total_parcelas: total,
-      data_primeira_parcela: values.data,
-      categoria_id: values.categoria_id || null,
-      conta_id: values.conta_id || null,
-      forma_pagamento: values.forma_pagamento,
-      observacao: values.observacao.trim() || null,
+      data_primeira_parcela: input.data,
+      categoria_id: input.categoria_id || null,
+      conta_id: input.conta_id || null,
+      forma_pagamento: input.forma_pagamento,
+      observacao: input.observacao.trim() || null,
       created_by: userId,
     })
     .select('id')
@@ -84,15 +104,18 @@ export async function criarLancamento(householdId: string, userId: string, value
 
   if (parcelamentoError) throw parcelamentoError;
 
-  const rows = Array.from({ length: total }, (_, index) => transactionPayload(
-    householdId,
-    userId,
-    { ...values, valor: valorParcela },
-    addMonths(new Date(`${values.data}T12:00:00`), index).toISOString().slice(0, 10),
-    parcelamento.id,
-    index + 1,
-    total,
-  ));
+  const rows = Array.from({ length: total }, (_, index) =>
+    transactionPayload(
+      householdId,
+      userId,
+      { ...input, valor: valorParcela },
+      addMonths(new Date(`${input.data}T12:00:00`), index).toISOString().slice(0, 10),
+      parcelamento.id,
+      index + 1,
+      total,
+    ),
+  );
+
   const { data, error } = await supabase
     .from('transacoes')
     .insert(rows)
@@ -103,7 +126,11 @@ export async function criarLancamento(householdId: string, userId: string, value
   return (data?.[0] ?? rows[0]) as Transacao;
 }
 
-export async function atualizarTransacao(householdId: string, transacaoId: string, values: TransacaoFormValues): Promise<void> {
+export async function atualizarTransacao(
+  householdId: string,
+  transacaoId: string,
+  values: TransacaoFormValues,
+): Promise<void> {
   const { error } = await supabase
     .from('transacoes')
     .update({
@@ -123,8 +150,16 @@ export async function atualizarTransacao(householdId: string, transacaoId: strin
   if (error) throw error;
 }
 
-export async function excluirTransacao(householdId: string, transacaoId: string): Promise<void> {
-  const { error } = await supabase.from('transacoes').delete().eq('id', transacaoId).eq('household_id', householdId);
+export async function excluirTransacao(
+  householdId: string,
+  transacaoId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('transacoes')
+    .delete()
+    .eq('id', transacaoId)
+    .eq('household_id', householdId);
+
   if (error) throw error;
 }
 
