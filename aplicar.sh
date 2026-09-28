@@ -1,379 +1,310 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Tarefa: Migrar paleta dos componentes de categoria (5a)
+# Tarefa: Migrar paleta de CategoriasManager e LancamentoForm (5b)
 # ============================================================
 # O que este script faz:
-# - CategoriaForm.tsx: inputs e textos na paleta oficial
-# - CategoriaItem.tsx: cores e botões na paleta oficial
-# - CategoriaList.tsx: corrige text-h4 (inexistente) → text-h3
+# - CategoriasManager.tsx: abas e lista na paleta oficial
+# - LancamentoForm.tsx: textos no rodapé na paleta oficial
 #
 # Arquivos criados: nenhum
 # Arquivos alterados:
-#   - src/modules/financeiro/components/CategoriaForm.tsx (sobrescrito)
-#   - src/modules/financeiro/components/CategoriaItem.tsx (sobrescrito)
-#   - src/modules/financeiro/components/CategoriaList.tsx (sobrescrito)
+#   - src/modules/financeiro/components/CategoriasManager.tsx (sobrescrito)
+#   - src/modules/financeiro/components/LancamentoForm.tsx (sobrescrito)
 # ============================================================
 
 set -e
 
-# --- src/modules/financeiro/components/CategoriaForm.tsx ---
-cat << 'EOF' > src/modules/financeiro/components/CategoriaForm.tsx
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import type { CategoriaFormValues } from '../types/categorias.types';
+# --- src/modules/financeiro/components/CategoriasManager.tsx ---
+cat << 'EOF' > src/modules/financeiro/components/CategoriasManager.tsx
+import { useMemo, useState } from 'react';
+import { Check, Home, Pencil, PiggyBank, Plus, ShoppingBag, Tag, Trash2, TrendingUp, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useCategorias } from '../hooks/useCategorias';
+import type { Categoria, CategoriaNatureza } from '../types/categorias.types';
 
-const categoriaFormSchema = z.object({
-  nome: z.string().trim().min(2, 'O nome da categoria deve ter pelo menos 2 caracteres.').max(60, 'O nome deve ter no máximo 60 caracteres.'),
-  tipo: z.enum(['receita', 'despesa']),
-  natureza: z.enum(['fixo', 'variavel', 'investimento', 'outro']),
-  cor: z.string().optional().default(''),
-  icone: z.string().optional().default(''),
-  ativa: z.boolean().default(true),
-});
+const tabs: Array<{ id: 'receita' | CategoriaNatureza | 'cartao'; label: string; icon: typeof Tag }> = [
+  { id: 'receita', label: 'Receitas', icon: TrendingUp },
+  { id: 'fixo', label: 'Fixo', icon: Home },
+  { id: 'variavel', label: 'Variável', icon: ShoppingBag },
+  { id: 'cartao', label: 'Cartão', icon: Tag },
+  { id: 'investimento', label: 'Investimento', icon: PiggyBank },
+];
 
-export type CategoriaFormProps = {
-  mode?: 'create' | 'edit';
-  initialValues?: Partial<CategoriaFormValues>;
-  isSubmitting?: boolean;
-  onSubmit: (values: CategoriaFormValues) => Promise<void> | void;
-  onCancel: () => void;
-};
+type CategoryTab = typeof tabs[number]['id'];
 
-const defaultValues: CategoriaFormValues = {
-  nome: '',
-  tipo: 'despesa',
-  natureza: 'outro',
-  cor: '',
-  icone: '',
-  ativa: true,
-};
+function categoryNature(tab: CategoryTab): CategoriaNatureza {
+  return tab === 'receita' ? 'outro' : tab === 'cartao' ? 'variavel' : tab;
+}
 
-export function CategoriaForm({
-  mode = 'create',
-  initialValues,
-  isSubmitting = false,
-  onSubmit,
-  onCancel,
-}: CategoriaFormProps) {
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    reset,
-    formState: { errors },
-  } = useForm<CategoriaFormValues>({
-    defaultValues: {
-      ...defaultValues,
-      ...initialValues,
-    },
-  });
+export function CategoriasManager() {
+  const { categorias, isLoading, createCategoria, updateCategoria, deleteCategoria, isCreating, isUpdating, isDeleting } = useCategorias();
+  const [activeTab, setActiveTab] = useState<CategoryTab>('receita');
+  const [newName, setNewName] = useState('');
+  const [editing, setEditing] = useState<Categoria | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [deleting, setDeleting] = useState<Categoria | null>(null);
 
-  useEffect(() => {
-    reset({
-      ...defaultValues,
-      ...initialValues,
-    });
-  }, [initialValues, reset]);
+  const visible = useMemo(() => categorias.filter((categoria) => (
+    activeTab === 'receita'
+      ? categoria.tipo === 'receita'
+      : categoria.tipo === 'despesa' && categoria.natureza === categoryNature(activeTab)
+  )), [activeTab, categorias]);
 
-  const selectedTipo = watch('tipo');
-
-  const submit = async (values: CategoriaFormValues) => {
-    const parsed = categoriaFormSchema.safeParse(values);
-
-    if (!parsed.success) {
-      const firstError = parsed.error.errors[0];
-      if (firstError) {
-        const fieldName = firstError.path[0] as keyof CategoriaFormValues;
-        if (fieldName === 'nome') {
-          setValue('nome', values.nome, { shouldValidate: true });
-        }
-      }
-      return;
+  async function addCategory() {
+    const nome = newName.trim();
+    if (!nome) return;
+    try {
+      await createCategoria({ nome, tipo: activeTab === 'receita' ? 'receita' : 'despesa', natureza: categoryNature(activeTab), cor: '', icone: '', ativa: true });
+      setNewName('');
+      toast.success('Categoria adicionada.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível adicionar a categoria.');
     }
+  }
 
-    await onSubmit(parsed.data);
-  };
+  async function saveEdit() {
+    if (!editing || !editingName.trim()) return;
+    try {
+      await updateCategoria({ categoriaId: editing.id, values: { nome: editingName.trim(), tipo: editing.tipo, natureza: editing.natureza, cor: editing.cor ?? '', icone: editing.icone ?? '', ativa: editing.ativa } });
+      setEditing(null);
+      toast.success('Categoria renomeada.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível renomear a categoria.');
+    }
+  }
 
-  return (
-    <form onSubmit={handleSubmit(submit)} className="space-y-5">
-      <div className="space-y-2">
-        <label htmlFor="categoria-nome" className="text-sm font-medium text-ink-900">
-          Nome
-        </label>
-        <input
-          id="categoria-nome"
-          type="text"
-          {...register('nome')}
-          className="input-base"
-          placeholder="Ex: Alimentação"
-        />
-        {errors.nome ? (
-          <p className="text-xs text-state-error">{errors.nome.message}</p>
-        ) : null}
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <label htmlFor="categoria-tipo" className="text-sm font-medium text-ink-900">
-            Tipo
-          </label>
-          <select
-            id="categoria-tipo"
-            {...register('tipo')}
-            className="input-base"
-          >
-            <option value="receita">Receita</option>
-            <option value="despesa">Despesa</option>
-          </select>
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="categoria-natureza" className="text-sm font-medium text-ink-900">
-            Natureza
-          </label>
-          <select
-            id="categoria-natureza"
-            {...register('natureza')}
-            className="input-base"
-          >
-            {selectedTipo === 'receita' ? (
-              <option value="outro">Outro</option>
-            ) : (
-              <>
-                <option value="fixo">Fixo</option>
-                <option value="variavel">Variável</option>
-                <option value="investimento">Investimento</option>
-                <option value="outro">Outro</option>
-              </>
-            )}
-          </select>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <label htmlFor="categoria-cor" className="text-sm font-medium text-ink-900">
-            Cor
-          </label>
-          <input
-            id="categoria-cor"
-            type="text"
-            {...register('cor')}
-            className="input-base"
-            placeholder="#5872C9"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="categoria-icone" className="text-sm font-medium text-ink-900">
-            Ícone
-          </label>
-          <input
-            id="categoria-icone"
-            type="text"
-            {...register('icone')}
-            className="input-base"
-            placeholder="WalletCards"
-          />
-        </div>
-      </div>
-
-      <label className="flex items-center gap-3 rounded-xl border border-canvas-300 bg-canvas-100 px-3 py-2.5 text-sm text-ink-900">
-        <input type="checkbox" {...register('ativa')} className="h-4 w-4 accent-brand-600" />
-        Categoria ativa
-      </label>
-
-      <div className="flex items-center justify-end gap-3 pt-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="btn-ghost"
-        >
-          Cancelar
-        </button>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="btn-primary"
-        >
-          {isSubmitting ? 'Salvando...' : mode === 'edit' ? 'Salvar alterações' : 'Criar categoria'}
-        </button>
-      </div>
-    </form>
-  );
-}
-EOF
-
-# --- src/modules/financeiro/components/CategoriaItem.tsx ---
-cat << 'EOF' > src/modules/financeiro/components/CategoriaItem.tsx
-import { Pencil, Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/Badge';
-import type { Categoria } from '../types/categorias.types';
-
-interface CategoriaItemProps {
-  categoria: Categoria;
-  onEdit: (categoria: Categoria) => void;
-  onDelete: (categoria: Categoria) => void;
-}
-
-function formatNatureza(value: Categoria['natureza']) {
-  const labels: Record<Categoria['natureza'], string> = {
-    fixo: 'Fixo',
-    variavel: 'Variável',
-    investimento: 'Investimento',
-    outro: 'Outro',
-  };
-
-  return labels[value];
-}
-
-export function CategoriaItem({ categoria, onEdit, onDelete }: CategoriaItemProps) {
-  const dotColor = categoria.cor && categoria.cor.trim().length > 0 ? categoria.cor : '#5872C9';
-
-  return (
-    <div className="card flex items-center justify-between gap-4 p-4">
-      <div className="flex items-center gap-3 min-w-0">
-        <div
-          className="flex h-10 w-10 items-center justify-center rounded-lg border text-sm font-bold"
-          style={{ backgroundColor: `${dotColor}20`, color: dotColor, borderColor: `${dotColor}50` }}
-        >
-          {categoria.icone && categoria.icone.trim().length > 0 ? categoria.icone.slice(0, 2).toUpperCase() : 'C'}
-        </div>
-
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-medium text-ink-900">{categoria.nome}</span>
-            <Badge variant={categoria.tipo === 'receita' ? 'success' : 'brand'}>
-              {categoria.tipo === 'receita' ? 'Receita' : 'Despesa'}
-            </Badge>
-          </div>
-          <p className="mt-1 text-xs text-ink-500">
-            {formatNatureza(categoria.natureza)}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onEdit(categoria)}
-          className="icon-button"
-          aria-label={`Editar categoria ${categoria.nome}`}
-        >
-          <Pencil className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => onDelete(categoria)}
-          className="icon-button text-state-error hover:border-state-error/30 hover:bg-state-error/10"
-          aria-label={`Excluir categoria ${categoria.nome}`}
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  );
-}
-EOF
-
-# --- src/modules/financeiro/components/CategoriaList.tsx ---
-cat << 'EOF' > src/modules/financeiro/components/CategoriaList.tsx
-import { Coins, Tags, TrendingDown, TrendingUp } from 'lucide-react';
-import { Badge } from '@/components/ui/Badge';
-import { EmptyState } from '@/components/ui/EmptyState';
-import type { Categoria, CategoriaTipo, CategoriaNatureza } from '../types/categorias.types';
-import { CategoriaItem } from './CategoriaItem';
-
-interface CategoriaListProps {
-  tipo: CategoriaTipo;
-  categorias: Categoria[];
-  onEdit: (categoria: Categoria) => void;
-  onDelete: (categoria: Categoria) => void;
-  onCreate: () => void;
-}
-
-const naturezas: CategoriaNatureza[] = ['fixo', 'variavel', 'investimento', 'outro'];
-
-const naturezaIconMap: Record<CategoriaNatureza, typeof Tags> = {
-  fixo: TrendingDown,
-  variavel: Coins,
-  investimento: TrendingUp,
-  outro: Tags,
-};
-
-const naturezaLabelMap: Record<CategoriaNatureza, string> = {
-  fixo: 'Fixo',
-  variavel: 'Variável',
-  investimento: 'Investimento',
-  outro: 'Outro',
-};
-
-export function CategoriaList({
-  tipo,
-  categorias,
-  onEdit,
-  onDelete,
-  onCreate,
-}: CategoriaListProps) {
-  const categoriasDoTipo = categorias.filter((categoria) => categoria.tipo === tipo);
-
-  if (categoriasDoTipo.length === 0) {
-    return (
-      <EmptyState
-        title={`Nenhuma categoria de ${tipo === 'receita' ? 'receita' : 'despesa'}`}
-        description="Ainda não há categorias cadastradas neste tipo. Crie uma para começar."
-        action={
-          <button
-            type="button"
-            onClick={onCreate}
-            className="btn-primary"
-          >
-            + Nova categoria
-          </button>
-        }
-      />
-    );
+  async function confirmDelete() {
+    if (!deleting) return;
+    try {
+      await deleteCategoria(deleting.id);
+      toast.success('Categoria excluída.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Não foi possível excluir a categoria.');
+    } finally {
+      setDeleting(null);
+    }
   }
 
   return (
-    <div className="space-y-6">
-      {naturezas.map((natureza) => {
-        const itens = categoriasDoTipo.filter((categoria) => categoria.natureza === natureza);
-
-        if (itens.length === 0) {
-          return null;
-        }
-
-        const Icon = naturezaIconMap[natureza];
-
-        return (
-          <section key={`${tipo}-${natureza}`} className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Icon className="h-4 w-4 text-brand-600" />
-              <h3 className="font-display text-h3 text-ink-900">
-                {naturezaLabelMap[natureza]}
-              </h3>
-              <Badge variant="neutral">{itens.length}</Badge>
-            </div>
-
-            <div className="space-y-3">
-              {itens.map((categoria) => (
-                <CategoriaItem
-                  key={categoria.id}
-                  categoria={categoria}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
+    <div className="space-y-4">
+      <div>
+        <h2 className="font-display text-h3 text-ink-900">Gerenciar categorias</h2>
+        <p className="mt-1 text-xs text-ink-500">Adicione, renomeie ou exclua categorias usadas no dashboard.</p>
+      </div>
+      <div className="flex flex-wrap gap-1 rounded-lg border border-canvas-300 bg-canvas-100 p-1">
+        {tabs.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => { setActiveTab(id); setEditing(null); }}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-semibold transition ${
+              activeTab === id
+                ? 'bg-brand-600 text-white'
+                : 'text-ink-500 hover:bg-canvas-200 hover:text-ink-900'
+            }`}
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input
+          value={newName}
+          onChange={(event) => setNewName(event.target.value)}
+          onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void addCategory(); } }}
+          className="input-base"
+          placeholder="Nova categoria..."
+        />
+        <button
+          type="button"
+          onClick={() => void addCategory()}
+          disabled={isCreating || !newName.trim()}
+          className="btn-primary flex shrink-0 items-center gap-2"
+        >
+          <Plus className="h-4 w-4" />
+          Adicionar
+        </button>
+      </div>
+      <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+        {isLoading ? (
+          <p className="p-6 text-center text-sm text-ink-500">Carregando categorias...</p>
+        ) : visible.length === 0 ? (
+          <p className="p-6 text-center text-sm text-ink-500">Nenhuma categoria. Adicione a primeira acima.</p>
+        ) : visible.map((categoria) => (
+          <div
+            key={categoria.id}
+            className="flex items-center justify-between gap-3 rounded-lg border border-canvas-300 bg-white px-3 py-2.5"
+          >
+            <div className="min-w-0 flex-1">
+              {editing?.id === categoria.id ? (
+                <input
+                  autoFocus
+                  value={editingName}
+                  onChange={(event) => setEditingName(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === 'Enter') void saveEdit(); if (event.key === 'Escape') setEditing(null); }}
+                  className="input-base py-1.5 text-sm"
                 />
-              ))}
+              ) : (
+                <span className="text-sm text-ink-900">{categoria.nome}</span>
+              )}
             </div>
-          </section>
-        );
-      })}
+            <div className="flex gap-1">
+              {editing?.id === categoria.id ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void saveEdit()}
+                    disabled={isUpdating}
+                    className="icon-button text-state-success hover:border-state-success/30 hover:bg-state-success/10"
+                    aria-label="Salvar categoria"
+                  >
+                    <Check className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(null)}
+                    className="icon-button"
+                    aria-label="Cancelar edição"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setEditing(categoria); setEditingName(categoria.nome); }}
+                    className="icon-button"
+                    aria-label={`Renomear ${categoria.nome}`}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleting(categoria)}
+                    className="icon-button text-state-error hover:border-state-error/30 hover:bg-state-error/10"
+                    aria-label={`Excluir ${categoria.nome}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <ConfirmDialog
+        open={Boolean(deleting)}
+        title="Excluir categoria"
+        description={deleting ? `Tem certeza que deseja excluir "${deleting.nome}"?` : 'Tem certeza que deseja excluir esta categoria?'}
+        confirmLabel={isDeleting ? 'Excluindo...' : 'Excluir'}
+        cancelLabel="Cancelar"
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleting(null)}
+        danger
+      />
     </div>
   );
+}
+EOF
+
+# --- src/modules/financeiro/components/LancamentoForm.tsx ---
+cat << 'EOF' > src/modules/financeiro/components/LancamentoForm.tsx
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { useCategorias } from '../hooks/useCategorias';
+import { useContas } from '../hooks/useContas';
+import type { LancamentoTipo, TransacaoFormValues } from '../types/transacoes.types';
+
+const schema = z.object({
+  tipo: z.enum(['receita', 'fixo', 'variavel', 'cartao', 'investimento']),
+  valor: z.coerce.number().positive('Informe um valor maior que zero.'),
+  data: z.string().min(1, 'Informe a data.'),
+  descricao: z.string(),
+  observacao: z.string(),
+  categoria_id: z.string(),
+  conta_id: z.string(),
+  forma_pagamento: z.enum(['pix', 'cartao_credito', 'cartao_debito', 'boleto', 'dinheiro', 'transferencia', 'outro']),
+  status: z.enum(['pendente', 'concluida']),
+  parcela_atual: z.number().nullable(),
+  parcela_total: z.number().nullable(),
+});
+
+const emptyValues: TransacaoFormValues = {
+  tipo: 'receita', valor: 0, data: new Date().toISOString().slice(0, 10), descricao: '', observacao: '',
+  categoria_id: '', conta_id: '', forma_pagamento: 'transferencia', status: 'concluida', parcela_atual: null, parcela_total: null,
+};
+
+interface LancamentoFormProps {
+  initialValues?: Partial<TransacaoFormValues>;
+  isSubmitting?: boolean;
+  onSubmit: (values: TransacaoFormValues) => Promise<void> | void;
+  onCancel?: () => void;
+}
+
+const tipoLabels: Record<LancamentoTipo, string> = {
+  receita: 'Receita', fixo: 'Gasto fixo', variavel: 'Gasto variável', cartao: 'Cartão de crédito', investimento: 'Investimento',
+};
+
+export function LancamentoForm({ initialValues, isSubmitting = false, onSubmit, onCancel }: LancamentoFormProps) {
+  const { categorias } = useCategorias();
+  const { contas } = useContas();
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<TransacaoFormValues>({ defaultValues: { ...emptyValues, ...initialValues } });
+  const tipo = watch('tipo');
+  const categoriaId = watch('categoria_id');
+  const parcelaTotal = watch('parcela_total');
+  const categoriaTipo = tipo === 'receita' ? 'receita' : 'despesa';
+  const natureza = tipo === 'fixo' ? 'fixo' : tipo === 'investimento' ? 'investimento' : tipo === 'variavel' || tipo === 'cartao' ? 'variavel' : null;
+  const categoriasDoTipo = categorias.filter((categoria) => categoria.tipo === categoriaTipo && categoria.ativa && (!natureza || categoria.natureza === natureza));
+
+  useEffect(() => {
+    reset({ ...emptyValues, ...initialValues });
+  }, [initialValues, reset]);
+
+  useEffect(() => {
+    if (!categoriasDoTipo.some((categoria) => categoria.id === categoriaId)) {
+      const categoria = categoriasDoTipo[0];
+      if (categoria) reset({ ...watch(), categoria_id: categoria.id });
+    }
+  }, [categoriasDoTipo, categoriaId, reset, watch]);
+
+  const submit = async (values: TransacaoFormValues) => {
+    const parsed = schema.safeParse({
+      ...values,
+      parcela_atual: values.tipo === 'cartao' && values.parcela_total ? values.parcela_atual ?? 1 : null,
+      parcela_total: values.tipo === 'cartao' && values.parcela_total ? values.parcela_total : null,
+    });
+    if (parsed.success) await onSubmit(parsed.data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit(submit)} className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-[130px_140px_1.1fr_1fr_1fr_1.1fr_110px_auto]">
+        <Field label="Data"><input type="date" {...register('data')} className="input-base" /></Field>
+        <Field label="Tipo"><select {...register('tipo')} className="input-base">{Object.entries(tipoLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></Field>
+        <Field label="Categoria"><select {...register('categoria_id')} className="input-base"><option value="">Sem categoria</option>{categoriasDoTipo.map((categoria) => <option key={categoria.id} value={categoria.id}>{categoria.nome}</option>)}</select></Field>
+        <Field label="Forma de pagamento"><select {...register('forma_pagamento')} className="input-base"><option value="pix">Pix</option><option value="cartao_credito">Cartão de crédito</option><option value="cartao_debito">Cartão de débito</option><option value="boleto">Boleto</option><option value="dinheiro">Dinheiro</option><option value="transferencia">Transferência</option><option value="outro">Outro</option></select></Field>
+        <Field label="Instituição"><select {...register('conta_id')} className="input-base"><option value="">Sem instituição</option>{contas.map((conta) => <option key={conta.id} value={conta.id}>{conta.instituicao ? `${conta.instituicao} · ${conta.nome}` : conta.nome}</option>)}</select></Field>
+        <Field label="Descrição"><input {...register('descricao')} className="input-base" placeholder="Ex: Aluguel de setembro" /></Field>
+        <Field label="Valor (R$)"><input type="number" min="0" step="0.01" {...register('valor', { valueAsNumber: true })} className="input-base" placeholder="0,00" />{errors.valor ? <ErrorText>{errors.valor.message}</ErrorText> : null}</Field>
+        <div className="flex items-end"><button type="submit" disabled={isSubmitting} className="btn-primary flex w-full items-center justify-center">{isSubmitting ? '...' : 'Lançar'}</button></div>
+      </div>
+      {tipo === 'cartao' ? <div className="grid gap-3 sm:grid-cols-3"><Field label="Parcela atual"><input type="number" min="1" {...register('parcela_atual', { valueAsNumber: true })} className="input-base" placeholder="1" /></Field><Field label="Total de parcelas"><input type="number" min="2" {...register('parcela_total', { valueAsNumber: true })} className="input-base" placeholder="10" /></Field><Field label="Status"><select {...register('status')} className="input-base"><option value="concluida">Concluído</option><option value="pendente">Pendente</option></select></Field></div> : null}
+      <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-ink-500">{tipo === 'cartao' && parcelaTotal && parcelaTotal > 1 ? `Serão criadas ${parcelaTotal} parcelas mensais.` : 'Registre receitas, gastos, cartões ou investimentos.'}</p><div className="flex gap-3">{onCancel ? <button type="button" onClick={onCancel} className="btn-ghost">Cancelar</button> : null}<button type="button" className="btn-ghost" onClick={() => reset({ ...emptyValues, ...initialValues })}>Limpar</button></div></div>
+    </form>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <label className="block min-w-0"><span className="label-base">{label}</span>{children}</label>;
+}
+
+function ErrorText({ children }: { children?: React.ReactNode }) {
+  return <span className="mt-1 block text-xs text-state-error">{children}</span>;
 }
 EOF
 
@@ -382,5 +313,5 @@ echo "✅ Pronto."
 echo ""
 echo "Próximos passos:"
 echo "  1. git diff"
-echo "  2. Se estiver OK: git add . && git commit -m \"style: migra paleta dos componentes de categoria\" && git push"
+echo "  2. Se estiver OK: git add . && git commit -m \"style: migra paleta de CategoriasManager e LancamentoForm\" && git push"
 echo ""
