@@ -1,70 +1,107 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Tarefa: Migrar paleta do ProtectedRoute e HouseholdGuard
+# Tarefa: Migrar paleta do main.tsx e HomePage.tsx
 # ============================================================
 # O que este script faz:
-# - Atualiza os tokens de paleta dos spinners e textos de loading
-#   nesses dois arquivos, que ainda usavam navy-* / content-*
+# - main.tsx: Toaster sem theme="dark", cores da paleta off-white
+# - HomePage.tsx: Recharts com hex da paleta nova + tokens atuais
 #
 # Arquivos criados: nenhum
 # Arquivos alterados:
-#   - src/core/auth/ProtectedRoute.tsx (sobrescrito)
-#   - src/core/household/HouseholdGuard.tsx (sobrescrito)
+#   - src/main.tsx (sobrescrito)
+#   - src/app/HomePage.tsx (sobrescrito)
 # ============================================================
 
 set -e
 
-# --- src/core/auth/ProtectedRoute.tsx ---
-cat << 'EOF' > src/core/auth/ProtectedRoute.tsx
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from './useAuth';
+# --- src/main.tsx ---
+cat << 'EOF' > src/main.tsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
+import { queryClient } from './lib/queryClient';
+import App from './App';
+import './styles/globals.css';
 
-export function ProtectedRoute() {
-  const { isAuthenticated, loading } = useAuth();
-  const location = useLocation();
-
-  if (loading) {
-    return (
-      <div className="min-h-screen grid place-items-center bg-canvas-100">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-full border-[3px] border-canvas-300 border-t-brand-600 animate-spin" />
-          <div className="text-sm text-ink-500">Carregando…</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
-  }
-
-  return <Outlet />;
-}
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <QueryClientProvider client={queryClient}>
+      <App />
+      <Toaster
+        position="bottom-right"
+        theme="light"
+        toastOptions={{
+          style: {
+            background: '#FFFFFF',
+            border: '1px solid #E5E2D9',
+            color: '#1A2233',
+          },
+        }}
+      />
+    </QueryClientProvider>
+  </React.StrictMode>,
+);
 EOF
 
-# --- src/core/household/HouseholdGuard.tsx ---
-cat << 'EOF' > src/core/household/HouseholdGuard.tsx
-import { Outlet } from 'react-router-dom';
-import { useAuth } from '@/core/auth/useAuth';
-import { useHousehold } from './useHousehold';
+# --- src/app/HomePage.tsx ---
+cat << 'EOF' > src/app/HomePage.tsx
+import { Clock3 } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { usePlatformTime } from '@/core/activity/usePlatformTime';
 
-export function HouseholdGuard() {
-  const { loading: authLoading } = useAuth();
-  const { loading: householdLoading } = useHousehold();
+function formatMinutes(minutes: number) {
+  if (minutes < 1) return 'menos de 1 min';
+  const rounded = Math.round(minutes);
+  const hours = Math.floor(rounded / 60);
+  const remaining = rounded % 60;
+  if (hours === 0) return `${remaining} min`;
+  return `${hours}h ${String(remaining).padStart(2, '0')}min`;
+}
 
-  if (authLoading || householdLoading) {
-    return (
-      <div className="min-h-screen grid place-items-center bg-canvas-100">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-full border-[3px] border-canvas-300 border-t-brand-600 animate-spin" />
-          <div className="text-sm text-ink-500">Carregando sua família…</div>
+export default function HomePage() {
+  const usage = usePlatformTime();
+  const totalMinutes = usage.reduce((total, day) => total + day.minutes, 0);
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-6">
+      <header>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-600">Início</p>
+        <h1 className="mt-2 font-display text-h1 font-semibold tracking-tight text-ink-900">Resumo da semana</h1>
+        <p className="mt-1 text-body text-ink-500">Acompanhe sua presença dentro do MyLife.</p>
+      </header>
+
+      <section className="card p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-ink-500">
+              <Clock3 className="h-4 w-4 text-brand-600" />
+              <span className="text-xs font-semibold uppercase tracking-[0.16em]">Tempo na plataforma</span>
+            </div>
+            <p className="mt-3 font-display text-3xl font-semibold tabular-nums text-ink-900">{formatMinutes(totalMinutes)}</p>
+            <p className="mt-1 text-sm text-ink-500">somado de segunda a domingo</p>
+          </div>
         </div>
-      </div>
-    );
-  }
 
-  return <Outlet />;
+        <div className="mt-6 h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={usage} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke="#E5E2D9" strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tick={{ fill: '#5A6478', fontSize: 12 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#8B93A5', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(value) => `${value}m`} />
+              <Tooltip
+                cursor={{ fill: 'rgba(88, 114, 201, 0.08)' }}
+                contentStyle={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E2D9', borderRadius: 8 }}
+                formatter={(value) => [formatMinutes(Number(value)), 'Tempo']}
+              />
+              <Bar dataKey="minutes" name="Tempo" fill="#5872C9" radius={[5, 5, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+    </div>
+  );
 }
 EOF
 
@@ -73,5 +110,5 @@ echo "✅ Pronto."
 echo ""
 echo "Próximos passos:"
 echo "  1. git diff"
-echo "  2. Se estiver OK: git add . && git commit -m \"style: migra paleta de ProtectedRoute e HouseholdGuard\" && git push"
+echo "  2. Se estiver OK: git add . && git commit -m \"style: migra paleta de main.tsx e HomePage\" && git push"
 echo ""
