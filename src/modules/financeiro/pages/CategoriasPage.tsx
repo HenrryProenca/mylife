@@ -107,7 +107,7 @@ export default function CategoriasPage() {
   if (!hasHousehold) {
     return (
       <div className="mx-auto max-w-3xl">
-        <h1 className="font-display text-h1 font-semibold tracking-tight">Categorias</h1>
+        <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Categorias</h1>
         <div className="mt-6">
           <EmptyState
             title="Nenhuma família cadastrada"
@@ -116,7 +116,7 @@ export default function CategoriasPage() {
               <button
                 type="button"
                 onClick={() => navigate('/onboarding')}
-                className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-500"
+                className="btn-primary"
               >
                 Criar família
               </button>
@@ -131,8 +131,8 @@ export default function CategoriasPage() {
     <div className="mx-auto max-w-6xl">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="font-display text-h1 font-semibold tracking-tight">Categorias</h1>
-          <p className="mt-1 text-sm text-content-secondary">
+          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Categorias</h1>
+          <p className="mt-1 text-sm text-ink-500">
             Organize as categorias da família {activeHousehold?.nome ?? 'ativa'}.
           </p>
         </div>
@@ -140,14 +140,14 @@ export default function CategoriasPage() {
         <button
           type="button"
           onClick={openCreateModal}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-500"
+          className="btn-primary"
         >
           <Plus className="h-4 w-4" />
           Nova categoria
         </button>
       </div>
 
-      <div className="mt-6 flex gap-2 rounded-xl border border-white/10 bg-navy-800/60 p-1">
+      <div className="mt-6 flex gap-2 rounded-xl border border-canvas-300 bg-canvas-100 p-1">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -156,7 +156,7 @@ export default function CategoriasPage() {
             className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium transition ${
               tipoAtivo === tab.id
                 ? 'bg-brand-600 text-white'
-                : 'text-content-secondary hover:bg-white/5 hover:text-content-primary'
+                : 'text-ink-500 hover:bg-canvas-200 hover:text-ink-900'
             }`}
           >
             {tab.label}
@@ -166,7 +166,7 @@ export default function CategoriasPage() {
 
       <div className="mt-6">
         {isLoading ? (
-          <div className="card p-6 text-sm text-content-secondary">Carregando categorias...</div>
+          <div className="card p-6 text-sm text-ink-500">Carregando categorias...</div>
         ) : (
           <CategoriaList
             tipo={tipoAtivo}
@@ -187,7 +187,7 @@ export default function CategoriasPage() {
               <button
                 type="button"
                 onClick={openCreateModal}
-                className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-500"
+                className="btn-primary"
               >
                 + Criar categoria
               </button>
