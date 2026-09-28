@@ -1,30 +1,116 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Melhoria de UX — Acesso à configuração da família
+# Bloco G1-g — Gerenciar família inline em /selecionar-familia
 # ============================================================
 # O que este script faz:
-# - Sidebar: card de família ativa leva para /familia (se 1 família)
-#   ou /selecionar-familia (se 2+)
-# - SelecionarHouseholdPage: adiciona botão "Configurar" ao lado de
-#   cada família, que vai direto para /familia
+# - Remove o item "Gerenciar família" do Sidebar
+# - Restaura o destino do card da família no Sidebar
+# - Extrai o conteúdo de FamiliaPage para GerenciarFamiliaPanel
+# - Faz o painel ser renderizado inline em SelecionarHouseholdPage
+# - Remove a rota /familia do router
+# - Deleta a página FamiliaPage (não é mais necessária)
 #
-# Arquivos criados: nenhum
+# Arquivos criados:
+#   - src/core/household/components/GerenciarFamiliaPanel.tsx
+#
 # Arquivos alterados:
 #   - src/app/Sidebar.tsx (sobrescrito)
 #   - src/core/household/pages/SelecionarHouseholdPage.tsx (sobrescrito)
+#   - src/router.tsx (sobrescrito)
+#
+# Arquivos deletados:
+#   - src/core/household/pages/FamiliaPage.tsx
 # ============================================================
 
 set -e
 
 mkdir -p src/app
+mkdir -p src/core/household/components
 mkdir -p src/core/household/pages
+
+# ---------- DELETAR: FamiliaPage.tsx ----------
+rm -f src/core/household/pages/FamiliaPage.tsx
+
+# ---------- CRIAR: core/household/components/GerenciarFamiliaPanel.tsx ----------
+cat << 'EOF' > src/core/household/components/GerenciarFamiliaPanel.tsx
+import { Users } from 'lucide-react';
+import { FamilyInviteForm } from './FamilyInviteForm';
+import { FamilyInvitesList } from './FamilyInvitesList';
+import { FamilyMembersList } from './FamilyMembersList';
+import { useMembros } from '../hooks/useMembros';
+import type { HouseholdWithMembership } from '../types';
+
+interface GerenciarFamiliaPanelProps {
+  household: HouseholdWithMembership;
+}
+
+export function GerenciarFamiliaPanel({ household }: GerenciarFamiliaPanelProps) {
+  const { membros, isLoading: carregandoMembros } = useMembros();
+
+  const papelAtual = household.membership.papel;
+  const podeConvidar = papelAtual === 'owner' || papelAtual === 'admin';
+
+  return (
+    <div className="space-y-5">
+      <header className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
+          <Users className="h-4 w-4" />
+        </div>
+        <div>
+          <h2 className="font-display text-h3 font-semibold text-ink-900">
+            Gerenciar {household.nome}
+          </h2>
+          <p className="text-xs text-ink-500">
+            Membros e convites desta família
+          </p>
+        </div>
+      </header>
+
+      {podeConvidar ? (
+        <section className="rounded-xl border border-canvas-300 bg-white p-4">
+          <h3 className="font-display text-h3 text-ink-900">Convidar membro</h3>
+          <p className="mt-1 mb-3 text-xs text-ink-500">
+            Crie um convite e envie o link para a pessoa entrar na família.
+          </p>
+          <FamilyInviteForm />
+        </section>
+      ) : (
+        <div className="rounded-lg border border-canvas-300 bg-canvas-100 p-3 text-xs text-ink-500">
+          Apenas dono e administradores podem convidar novos membros.
+        </div>
+      )}
+
+      <section className="rounded-xl border border-canvas-300 bg-white p-4">
+        <h3 className="font-display text-h3 text-ink-900">
+          Membros ativos
+          {!carregandoMembros && membros.length > 0 ? (
+            <span className="ml-2 text-sm font-normal text-ink-500">({membros.length})</span>
+          ) : null}
+        </h3>
+        <p className="mt-1 mb-3 text-xs text-ink-500">
+          Pessoas que já fazem parte desta família.
+        </p>
+        <FamilyMembersList membros={membros} isLoading={carregandoMembros} />
+      </section>
+
+      <section className="rounded-xl border border-canvas-300 bg-white p-4">
+        <h3 className="font-display text-h3 text-ink-900">Convites pendentes</h3>
+        <p className="mt-1 mb-3 text-xs text-ink-500">
+          Convites criados que ainda não foram aceitos.
+        </p>
+        <FamilyInvitesList />
+      </section>
+    </div>
+  );
+}
+EOF
 
 # ---------- ALTERAR: src/app/Sidebar.tsx ----------
 cat << 'EOF' > src/app/Sidebar.tsx
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Home, Menu, Users } from 'lucide-react';
+import { ChevronDown, ChevronRight, Home, Menu } from 'lucide-react';
 import { MYLIFE_MODULES } from './modules';
 import { useHousehold } from '@/core/household/useHousehold';
 
@@ -35,22 +121,8 @@ export default function Sidebar() {
   const [modulesOpen, setModulesOpen] = useState(true);
 
   const hasNoHousehold = households.length === 0;
-  const temMultiplas = households.length > 1;
   const householdLabel = activeHousehold?.nome ?? 'Sem família';
-
-  // Se não tem família: vai criar. Se tem 1: vai direto para gerenciar.
-  // Se tem 2+: abre o seletor.
-  const destinoFamilia = hasNoHousehold
-    ? '/onboarding'
-    : temMultiplas
-    ? '/selecionar-familia'
-    : '/familia';
-
-  const legendaFamilia = hasNoHousehold
-    ? 'Minha família'
-    : temMultiplas
-    ? 'Trocar família'
-    : 'Família ativa';
+  const destinoFamilia = hasNoHousehold ? '/onboarding' : '/selecionar-familia';
 
   return (
     <aside className="w-60 shrink-0 border-r border-canvas-300 bg-white flex flex-col">
@@ -85,7 +157,7 @@ export default function Sidebar() {
 
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-ink-500">
-                  {legendaFamilia}
+                  {hasNoHousehold ? 'Minha família' : 'Família ativa'}
                 </div>
                 <div className="truncate text-sm font-semibold text-ink-900">
                   {householdLabel}
@@ -135,23 +207,6 @@ export default function Sidebar() {
               );
             })
           : null}
-
-        {activeHousehold ? (
-          <NavLink
-            to="/familia"
-            className={({ isActive }) =>
-              [
-                'mt-2 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
-                isActive
-                  ? 'bg-brand-50 text-brand-700'
-                  : 'text-ink-500 hover:text-ink-900 hover:bg-canvas-200',
-              ].join(' ')
-            }
-          >
-            <Users className="w-4 h-4" />
-            Gerenciar família
-          </NavLink>
-        ) : null}
       </nav>
     </aside>
   );
@@ -160,14 +215,16 @@ EOF
 
 # ---------- ALTERAR: src/core/household/pages/SelecionarHouseholdPage.tsx ----------
 cat << 'EOF' > src/core/household/pages/SelecionarHouseholdPage.tsx
-import { Check, Home, Minus, Settings, Trash2, Users, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Home, Minus, Trash2, Users, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useHousehold } from '@/core/household/useHousehold';
+import { GerenciarFamiliaPanel } from '../components/GerenciarFamiliaPanel';
 
 export default function SelecionarHouseholdPage() {
   const navigate = useNavigate();
+  const [gerenciandoId, setGerenciandoId] = useState<string | null>(null);
   const [familiaParaExcluir, setFamiliaParaExcluir] = useState<{
     id: string;
     nome: string;
@@ -198,9 +255,8 @@ export default function SelecionarHouseholdPage() {
     navigate('/', { replace: true });
   }
 
-  function handleConfigure(householdId: string) {
-    setActiveHousehold(householdId);
-    navigate('/familia', { replace: true });
+  function handleToggleGerenciar(householdId: string) {
+    setGerenciandoId((atual) => (atual === householdId ? null : householdId));
   }
 
   function handleClearSelection() {
@@ -214,9 +270,7 @@ export default function SelecionarHouseholdPage() {
   }
 
   async function confirmarExclusao() {
-    if (!familiaParaExcluir) {
-      return;
-    }
+    if (!familiaParaExcluir) return;
 
     try {
       await deleteHousehold(familiaParaExcluir.id);
@@ -240,7 +294,9 @@ export default function SelecionarHouseholdPage() {
               <p className="text-xs uppercase tracking-[0.2em] text-ink-500">
                 Família
               </p>
-              <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Selecionar família</h1>
+              <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">
+                Selecionar família
+              </h1>
             </div>
           </div>
 
@@ -262,7 +318,9 @@ export default function SelecionarHouseholdPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="font-semibold text-ink-900">Sem família</div>
-                    <div className="text-xs text-ink-500">Usar o app sem selecionar uma família</div>
+                    <div className="text-xs text-ink-500">
+                      Usar o app sem selecionar uma família
+                    </div>
                   </div>
                 </div>
                 {activeHouseholdId === null || activeHouseholdId === '__sem_familia__' ? (
@@ -276,66 +334,87 @@ export default function SelecionarHouseholdPage() {
 
             {households.map((household) => {
               const selected = household.id === activeHouseholdId;
+              const gerenciando = gerenciandoId === household.id;
 
               return (
                 <div
                   key={household.id}
                   className={[
-                    'w-full flex items-center gap-2 rounded-xl border px-4 py-2 transition',
+                    'rounded-xl border transition',
                     selected
                       ? 'border-brand-500 bg-brand-50'
-                      : 'border-canvas-300 bg-white hover:border-canvas-400',
+                      : 'border-canvas-300 bg-white',
                   ].join(' ')}
                 >
-                  <button
-                    type="button"
-                    onClick={() => handleSelect(household.id)}
-                    className="min-w-0 flex-1 text-left py-2"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-canvas-200 border border-canvas-300">
-                          <Home className="h-4 w-4 text-brand-600" />
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="truncate font-semibold text-ink-900">{household.nome}</div>
-                          <div className="text-xs text-ink-500 uppercase tracking-wider">
-                            {household.membership.papel}
-                          </div>
-                        </div>
-                      </div>
-
-                      {selected ? (
-                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
-                          <Check className="h-3.5 w-3.5" />
-                          Ativa
-                        </span>
-                      ) : null}
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    aria-label={`Configurar ${household.nome}`}
-                    title="Configurar família"
-                    onClick={() => handleConfigure(household.id)}
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-500 transition hover:bg-brand-50 hover:text-brand-600"
-                  >
-                    <Settings className="h-4 w-4" />
-                  </button>
-
-                  {household.membership.papel === 'owner' ? (
+                  <div className="flex items-center gap-2 px-4 py-2">
                     <button
                       type="button"
-                      aria-label={`Excluir ${household.nome}`}
-                      title="Excluir família"
-                      disabled={deleting}
-                      onClick={() => solicitarExclusao(household.id, household.nome)}
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-500 transition hover:bg-state-error/10 hover:text-state-error disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => handleSelect(household.id)}
+                      className="min-w-0 flex-1 text-left py-2"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-canvas-200 border border-canvas-300">
+                            <Home className="h-4 w-4 text-brand-600" />
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold text-ink-900">
+                              {household.nome}
+                            </div>
+                            <div className="text-xs text-ink-500 uppercase tracking-wider">
+                              {household.membership.papel}
+                            </div>
+                          </div>
+                        </div>
+
+                        {selected ? (
+                          <span className="inline-flex items-center gap-2 rounded-full border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
+                            <Check className="h-3.5 w-3.5" />
+                            Ativa
+                          </span>
+                        ) : null}
+                      </div>
                     </button>
+
+                    <button
+                      type="button"
+                      aria-label={gerenciando ? 'Fechar gerenciamento' : `Gerenciar ${household.nome}`}
+                      title={gerenciando ? 'Fechar' : 'Gerenciar família'}
+                      onClick={() => handleToggleGerenciar(household.id)}
+                      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-ink-500 transition hover:bg-brand-50 hover:text-brand-600"
+                    >
+                      {gerenciando ? (
+                        <>
+                          <ChevronDown className="h-4 w-4" />
+                          Fechar
+                        </>
+                      ) : (
+                        <>
+                          Gerenciar
+                          <ChevronRight className="h-4 w-4" />
+                        </>
+                      )}
+                    </button>
+
+                    {household.membership.papel === 'owner' ? (
+                      <button
+                        type="button"
+                        aria-label={`Excluir ${household.nome}`}
+                        title="Excluir família"
+                        disabled={deleting}
+                        onClick={() => solicitarExclusao(household.id, household.nome)}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-500 transition hover:bg-state-error/10 hover:text-state-error disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {gerenciando ? (
+                    <div className="border-t border-canvas-300 bg-canvas-50 p-4 animate-fade-in">
+                      <GerenciarFamiliaPanel household={household} />
+                    </div>
                   ) : null}
                 </div>
               );
@@ -420,12 +499,66 @@ export default function SelecionarHouseholdPage() {
 }
 EOF
 
+# ---------- ALTERAR: src/router.tsx ----------
+cat << 'EOF' > src/router.tsx
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+import AppShell from './app/AppShell';
+import HomePage from './app/HomePage';
+import { ProtectedRoute } from './core/auth/ProtectedRoute';
+import LoginPage from './core/auth/pages/LoginPage';
+import CadastroPage from './core/auth/pages/CadastroPage';
+import RecuperarSenhaPage from './core/auth/pages/RecuperarSenhaPage';
+import RedefinirSenhaPage from './core/auth/pages/RedefinirSenhaPage';
+import { HouseholdGuard } from './core/household/HouseholdGuard';
+import OnboardingPage from './core/household/pages/OnboardingPage';
+import SelecionarHouseholdPage from './core/household/pages/SelecionarHouseholdPage';
+import PerfilPage from './core/usuarios/pages/PerfilPage';
+import DashboardPage from './modules/financeiro/pages/DashboardPage';
+import ListaMercadoPage from './modules/lista-mercado/pages/ListaMercadoPage';
+
+export const router = createBrowserRouter([
+  // ---------- Rotas públicas ----------
+  { path: '/login', element: <LoginPage /> },
+  { path: '/cadastro', element: <CadastroPage /> },
+  { path: '/recuperar-senha', element: <RecuperarSenhaPage /> },
+  { path: '/redefinir-senha', element: <RedefinirSenhaPage /> },
+
+  // ---------- Rotas protegidas ----------
+  {
+    path: '/',
+    element: <ProtectedRoute />,
+    children: [
+      { path: 'onboarding', element: <OnboardingPage /> },
+      { path: 'selecionar-familia', element: <SelecionarHouseholdPage /> },
+      {
+        path: '',
+        element: <HouseholdGuard />,
+        children: [
+          {
+            path: '',
+            element: <AppShell />,
+            children: [
+              { index: true, element: <HomePage /> },
+              { path: 'financeiro', element: <DashboardPage /> },
+              { path: 'lista-mercado', element: <ListaMercadoPage /> },
+              { path: 'perfil', element: <PerfilPage /> },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  { path: '*', element: <Navigate to="/" replace /> },
+]);
+EOF
+
 echo ""
 echo "✅ Pronto."
 echo ""
 echo "Próximos passos:"
-echo "  1. git status              (deve listar 2 modificados)"
+echo "  1. git status              (deve listar 1 novo + 3 modificados + 1 deletado)"
 echo "  2. npm run typecheck       (confirma que não quebrou tipos)"
 echo "  3. npm run dev             (testa o novo fluxo)"
-echo "  4. Se estiver OK: git add . && git commit -m \"feat: melhora acesso a configuracao da familia\" && git push"
+echo "  4. Se estiver OK: git add . && git commit -m \"feat: gerencia familia inline em selecionar-familia\" && git push"
 echo ""
