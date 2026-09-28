@@ -1,15 +1,17 @@
+import type { ReactNode } from 'react';
+
 type BadgeVariant = 'brand' | 'success' | 'warning' | 'neutral' | 'danger';
 
 interface BadgeProps {
-  children: React.ReactNode;
+  children: ReactNode;
   variant?: BadgeVariant;
 }
 
 const classesByVariant: Record<BadgeVariant, string> = {
-  brand: 'bg-brand-600/15 text-brand-300 border-brand-500/30',
+  brand: 'bg-brand-50 text-brand-700 border-brand-200',
   success: 'bg-state-success/15 text-state-success border-state-success/30',
-  warning: 'bg-yellow-500/15 text-yellow-300 border-yellow-400/30',
-  neutral: 'bg-white/5 text-content-secondary border-white/10',
+  warning: 'bg-state-alert/15 text-state-alert border-state-alert/30',
+  neutral: 'bg-canvas-200 text-ink-500 border-canvas-300',
   danger: 'bg-state-error/15 text-state-error border-state-error/30',
 };
 

@@ -25,7 +25,6 @@ export function ConfirmDialog({
     <Modal
       open={open}
       title={title}
-      description={description}
       onClose={onCancel}
       maxWidth="max-w-md"
       footer={
@@ -33,7 +32,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-content-primary transition hover:bg-white/10"
+            className="rounded-xl border border-canvas-300 bg-white px-4 py-2 text-sm font-medium text-ink-900 transition hover:bg-canvas-200"
           >
             {cancelLabel}
           </button>
@@ -42,8 +41,8 @@ export function ConfirmDialog({
             onClick={onConfirm}
             className={`rounded-xl px-4 py-2 text-sm font-medium text-white transition ${
               danger
-                ? 'bg-state-error hover:bg-red-500'
-                : 'bg-brand-600 hover:bg-brand-500'
+                ? 'bg-state-error hover:brightness-105'
+                : 'bg-brand-600 hover:bg-brand-700'
             }`}
           >
             {confirmLabel}
@@ -51,7 +50,7 @@ export function ConfirmDialog({
         </div>
       }
     >
-      <div className="text-sm text-content-secondary">{description}</div>
+      <div className="text-sm text-ink-500">{description}</div>
     </Modal>
   );
 }
