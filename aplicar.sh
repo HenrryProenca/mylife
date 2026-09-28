@@ -1,206 +1,378 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Tarefa: Migrar paleta dos 4 componentes de UI
+# Tarefa: Migrar paleta dos componentes de categoria (5a)
 # ============================================================
 # O que este script faz:
-# - Modal.tsx: fundo branco, textos ink, botões canvas
-# - ConfirmDialog.tsx: remove duplicação do description + paleta
-# - EmptyState.tsx: bullet → ícone Lucide + paleta
-# - Badge.tsx: red-500/yellow-500 → state-error/state-alert
+# - CategoriaForm.tsx: inputs e textos na paleta oficial
+# - CategoriaItem.tsx: cores e botões na paleta oficial
+# - CategoriaList.tsx: corrige text-h4 (inexistente) → text-h3
 #
 # Arquivos criados: nenhum
 # Arquivos alterados:
-#   - src/components/ui/Modal.tsx (sobrescrito)
-#   - src/components/ui/ConfirmDialog.tsx (sobrescrito)
-#   - src/components/ui/EmptyState.tsx (sobrescrito)
-#   - src/components/ui/Badge.tsx (sobrescrito)
+#   - src/modules/financeiro/components/CategoriaForm.tsx (sobrescrito)
+#   - src/modules/financeiro/components/CategoriaItem.tsx (sobrescrito)
+#   - src/modules/financeiro/components/CategoriaList.tsx (sobrescrito)
 # ============================================================
 
 set -e
 
-# --- src/components/ui/Modal.tsx ---
-cat << 'EOF' > src/components/ui/Modal.tsx
-import type { ReactNode } from 'react';
-import { X } from 'lucide-react';
+# --- src/modules/financeiro/components/CategoriaForm.tsx ---
+cat << 'EOF' > src/modules/financeiro/components/CategoriaForm.tsx
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import type { CategoriaFormValues } from '../types/categorias.types';
 
-interface ModalProps {
-  open: boolean;
-  title: string;
-  description?: string;
-  children: ReactNode;
-  onClose: () => void;
-  footer?: ReactNode;
-  maxWidth?: string;
-}
+const categoriaFormSchema = z.object({
+  nome: z.string().trim().min(2, 'O nome da categoria deve ter pelo menos 2 caracteres.').max(60, 'O nome deve ter no máximo 60 caracteres.'),
+  tipo: z.enum(['receita', 'despesa']),
+  natureza: z.enum(['fixo', 'variavel', 'investimento', 'outro']),
+  cor: z.string().optional().default(''),
+  icone: z.string().optional().default(''),
+  ativa: z.boolean().default(true),
+});
 
-export function Modal({
-  open,
-  title,
-  description,
-  children,
-  onClose,
-  footer,
-  maxWidth = 'max-w-lg',
-}: ModalProps) {
-  if (!open) {
-    return null;
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4 backdrop-blur-sm">
-      <div
-        className={`w-full ${maxWidth} rounded-2xl border border-canvas-300 bg-white shadow-card-lg`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-canvas-300 px-5 py-4">
-          <div>
-            <h2 id="modal-title" className="font-display text-h3 text-ink-900">
-              {title}
-            </h2>
-            {description ? (
-              <p className="mt-1 text-sm text-ink-500">{description}</p>
-            ) : null}
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-ink-500 transition hover:bg-canvas-200 hover:text-ink-900"
-            aria-label="Fechar modal"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="px-5 py-4">{children}</div>
-
-        {footer ? <div className="border-t border-canvas-300 px-5 py-4">{footer}</div> : null}
-      </div>
-    </div>
-  );
-}
-EOF
-
-# --- src/components/ui/ConfirmDialog.tsx ---
-cat << 'EOF' > src/components/ui/ConfirmDialog.tsx
-import { Modal } from './Modal';
-
-interface ConfirmDialogProps {
-  open: boolean;
-  title: string;
-  description: string;
-  confirmLabel?: string;
-  cancelLabel?: string;
-  onConfirm: () => void;
+export type CategoriaFormProps = {
+  mode?: 'create' | 'edit';
+  initialValues?: Partial<CategoriaFormValues>;
+  isSubmitting?: boolean;
+  onSubmit: (values: CategoriaFormValues) => Promise<void> | void;
   onCancel: () => void;
-  danger?: boolean;
-}
+};
 
-export function ConfirmDialog({
-  open,
-  title,
-  description,
-  confirmLabel = 'Confirmar',
-  cancelLabel = 'Cancelar',
-  onConfirm,
+const defaultValues: CategoriaFormValues = {
+  nome: '',
+  tipo: 'despesa',
+  natureza: 'outro',
+  cor: '',
+  icone: '',
+  ativa: true,
+};
+
+export function CategoriaForm({
+  mode = 'create',
+  initialValues,
+  isSubmitting = false,
+  onSubmit,
   onCancel,
-  danger = false,
-}: ConfirmDialogProps) {
-  return (
-    <Modal
-      open={open}
-      title={title}
-      onClose={onCancel}
-      maxWidth="max-w-md"
-      footer={
-        <div className="flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-xl border border-canvas-300 bg-white px-4 py-2 text-sm font-medium text-ink-900 transition hover:bg-canvas-200"
-          >
-            {cancelLabel}
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className={`rounded-xl px-4 py-2 text-sm font-medium text-white transition ${
-              danger
-                ? 'bg-state-error hover:brightness-105'
-                : 'bg-brand-600 hover:bg-brand-700'
-            }`}
-          >
-            {confirmLabel}
-          </button>
-        </div>
+}: CategoriaFormProps) {
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<CategoriaFormValues>({
+    defaultValues: {
+      ...defaultValues,
+      ...initialValues,
+    },
+  });
+
+  useEffect(() => {
+    reset({
+      ...defaultValues,
+      ...initialValues,
+    });
+  }, [initialValues, reset]);
+
+  const selectedTipo = watch('tipo');
+
+  const submit = async (values: CategoriaFormValues) => {
+    const parsed = categoriaFormSchema.safeParse(values);
+
+    if (!parsed.success) {
+      const firstError = parsed.error.errors[0];
+      if (firstError) {
+        const fieldName = firstError.path[0] as keyof CategoriaFormValues;
+        if (fieldName === 'nome') {
+          setValue('nome', values.nome, { shouldValidate: true });
+        }
       }
-    >
-      <div className="text-sm text-ink-500">{description}</div>
-    </Modal>
-  );
-}
-EOF
+      return;
+    }
 
-# --- src/components/ui/EmptyState.tsx ---
-cat << 'EOF' > src/components/ui/EmptyState.tsx
-import type { ReactNode } from 'react';
-import { Inbox } from 'lucide-react';
+    await onSubmit(parsed.data);
+  };
 
-interface EmptyStateProps {
-  title: string;
-  description?: string;
-  action?: ReactNode;
-}
-
-export function EmptyState({ title, description, action }: EmptyStateProps) {
   return (
-    <div className="card flex flex-col items-center justify-center gap-3 p-8 text-center">
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-600/10 text-brand-600">
-        <Inbox className="h-6 w-6" />
-      </div>
-
-      <div>
-        <h3 className="font-display text-h3 text-ink-900">{title}</h3>
-        {description ? (
-          <p className="mt-2 text-sm text-ink-500">{description}</p>
+    <form onSubmit={handleSubmit(submit)} className="space-y-5">
+      <div className="space-y-2">
+        <label htmlFor="categoria-nome" className="text-sm font-medium text-ink-900">
+          Nome
+        </label>
+        <input
+          id="categoria-nome"
+          type="text"
+          {...register('nome')}
+          className="input-base"
+          placeholder="Ex: Alimentação"
+        />
+        {errors.nome ? (
+          <p className="text-xs text-state-error">{errors.nome.message}</p>
         ) : null}
       </div>
 
-      {action ? <div className="mt-2">{action}</div> : null}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <label htmlFor="categoria-tipo" className="text-sm font-medium text-ink-900">
+            Tipo
+          </label>
+          <select
+            id="categoria-tipo"
+            {...register('tipo')}
+            className="input-base"
+          >
+            <option value="receita">Receita</option>
+            <option value="despesa">Despesa</option>
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="categoria-natureza" className="text-sm font-medium text-ink-900">
+            Natureza
+          </label>
+          <select
+            id="categoria-natureza"
+            {...register('natureza')}
+            className="input-base"
+          >
+            {selectedTipo === 'receita' ? (
+              <option value="outro">Outro</option>
+            ) : (
+              <>
+                <option value="fixo">Fixo</option>
+                <option value="variavel">Variável</option>
+                <option value="investimento">Investimento</option>
+                <option value="outro">Outro</option>
+              </>
+            )}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <label htmlFor="categoria-cor" className="text-sm font-medium text-ink-900">
+            Cor
+          </label>
+          <input
+            id="categoria-cor"
+            type="text"
+            {...register('cor')}
+            className="input-base"
+            placeholder="#5872C9"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="categoria-icone" className="text-sm font-medium text-ink-900">
+            Ícone
+          </label>
+          <input
+            id="categoria-icone"
+            type="text"
+            {...register('icone')}
+            className="input-base"
+            placeholder="WalletCards"
+          />
+        </div>
+      </div>
+
+      <label className="flex items-center gap-3 rounded-xl border border-canvas-300 bg-canvas-100 px-3 py-2.5 text-sm text-ink-900">
+        <input type="checkbox" {...register('ativa')} className="h-4 w-4 accent-brand-600" />
+        Categoria ativa
+      </label>
+
+      <div className="flex items-center justify-end gap-3 pt-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="btn-ghost"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="btn-primary"
+        >
+          {isSubmitting ? 'Salvando...' : mode === 'edit' ? 'Salvar alterações' : 'Criar categoria'}
+        </button>
+      </div>
+    </form>
+  );
+}
+EOF
+
+# --- src/modules/financeiro/components/CategoriaItem.tsx ---
+cat << 'EOF' > src/modules/financeiro/components/CategoriaItem.tsx
+import { Pencil, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import type { Categoria } from '../types/categorias.types';
+
+interface CategoriaItemProps {
+  categoria: Categoria;
+  onEdit: (categoria: Categoria) => void;
+  onDelete: (categoria: Categoria) => void;
+}
+
+function formatNatureza(value: Categoria['natureza']) {
+  const labels: Record<Categoria['natureza'], string> = {
+    fixo: 'Fixo',
+    variavel: 'Variável',
+    investimento: 'Investimento',
+    outro: 'Outro',
+  };
+
+  return labels[value];
+}
+
+export function CategoriaItem({ categoria, onEdit, onDelete }: CategoriaItemProps) {
+  const dotColor = categoria.cor && categoria.cor.trim().length > 0 ? categoria.cor : '#5872C9';
+
+  return (
+    <div className="card flex items-center justify-between gap-4 p-4">
+      <div className="flex items-center gap-3 min-w-0">
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-lg border text-sm font-bold"
+          style={{ backgroundColor: `${dotColor}20`, color: dotColor, borderColor: `${dotColor}50` }}
+        >
+          {categoria.icone && categoria.icone.trim().length > 0 ? categoria.icone.slice(0, 2).toUpperCase() : 'C'}
+        </div>
+
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-medium text-ink-900">{categoria.nome}</span>
+            <Badge variant={categoria.tipo === 'receita' ? 'success' : 'brand'}>
+              {categoria.tipo === 'receita' ? 'Receita' : 'Despesa'}
+            </Badge>
+          </div>
+          <p className="mt-1 text-xs text-ink-500">
+            {formatNatureza(categoria.natureza)}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onEdit(categoria)}
+          className="icon-button"
+          aria-label={`Editar categoria ${categoria.nome}`}
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(categoria)}
+          className="icon-button text-state-error hover:border-state-error/30 hover:bg-state-error/10"
+          aria-label={`Excluir categoria ${categoria.nome}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }
 EOF
 
-# --- src/components/ui/Badge.tsx ---
-cat << 'EOF' > src/components/ui/Badge.tsx
-import type { ReactNode } from 'react';
+# --- src/modules/financeiro/components/CategoriaList.tsx ---
+cat << 'EOF' > src/modules/financeiro/components/CategoriaList.tsx
+import { Coins, Tags, TrendingDown, TrendingUp } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import { EmptyState } from '@/components/ui/EmptyState';
+import type { Categoria, CategoriaTipo, CategoriaNatureza } from '../types/categorias.types';
+import { CategoriaItem } from './CategoriaItem';
 
-type BadgeVariant = 'brand' | 'success' | 'warning' | 'neutral' | 'danger';
-
-interface BadgeProps {
-  children: ReactNode;
-  variant?: BadgeVariant;
+interface CategoriaListProps {
+  tipo: CategoriaTipo;
+  categorias: Categoria[];
+  onEdit: (categoria: Categoria) => void;
+  onDelete: (categoria: Categoria) => void;
+  onCreate: () => void;
 }
 
-const classesByVariant: Record<BadgeVariant, string> = {
-  brand: 'bg-brand-50 text-brand-700 border-brand-200',
-  success: 'bg-state-success/15 text-state-success border-state-success/30',
-  warning: 'bg-state-alert/15 text-state-alert border-state-alert/30',
-  neutral: 'bg-canvas-200 text-ink-500 border-canvas-300',
-  danger: 'bg-state-error/15 text-state-error border-state-error/30',
+const naturezas: CategoriaNatureza[] = ['fixo', 'variavel', 'investimento', 'outro'];
+
+const naturezaIconMap: Record<CategoriaNatureza, typeof Tags> = {
+  fixo: TrendingDown,
+  variavel: Coins,
+  investimento: TrendingUp,
+  outro: Tags,
 };
 
-export function Badge({ children, variant = 'neutral' }: BadgeProps) {
+const naturezaLabelMap: Record<CategoriaNatureza, string> = {
+  fixo: 'Fixo',
+  variavel: 'Variável',
+  investimento: 'Investimento',
+  outro: 'Outro',
+};
+
+export function CategoriaList({
+  tipo,
+  categorias,
+  onEdit,
+  onDelete,
+  onCreate,
+}: CategoriaListProps) {
+  const categoriasDoTipo = categorias.filter((categoria) => categoria.tipo === tipo);
+
+  if (categoriasDoTipo.length === 0) {
+    return (
+      <EmptyState
+        title={`Nenhuma categoria de ${tipo === 'receita' ? 'receita' : 'despesa'}`}
+        description="Ainda não há categorias cadastradas neste tipo. Crie uma para começar."
+        action={
+          <button
+            type="button"
+            onClick={onCreate}
+            className="btn-primary"
+          >
+            + Nova categoria
+          </button>
+        }
+      />
+    );
+  }
+
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${classesByVariant[variant]}`}
-    >
-      {children}
-    </span>
+    <div className="space-y-6">
+      {naturezas.map((natureza) => {
+        const itens = categoriasDoTipo.filter((categoria) => categoria.natureza === natureza);
+
+        if (itens.length === 0) {
+          return null;
+        }
+
+        const Icon = naturezaIconMap[natureza];
+
+        return (
+          <section key={`${tipo}-${natureza}`} className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Icon className="h-4 w-4 text-brand-600" />
+              <h3 className="font-display text-h3 text-ink-900">
+                {naturezaLabelMap[natureza]}
+              </h3>
+              <Badge variant="neutral">{itens.length}</Badge>
+            </div>
+
+            <div className="space-y-3">
+              {itens.map((categoria) => (
+                <CategoriaItem
+                  key={categoria.id}
+                  categoria={categoria}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
   );
 }
 EOF
@@ -210,5 +382,5 @@ echo "✅ Pronto."
 echo ""
 echo "Próximos passos:"
 echo "  1. git diff"
-echo "  2. Se estiver OK: git add . && git commit -m \"style: migra paleta dos componentes de UI\" && git push"
+echo "  2. Se estiver OK: git add . && git commit -m \"style: migra paleta dos componentes de categoria\" && git push"
 echo ""
