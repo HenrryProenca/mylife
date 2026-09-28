@@ -12,6 +12,16 @@ import type {
 export const ACTIVE_HOUSEHOLD_STORAGE_KEY = 'mylife:household_ativo';
 export const NO_ACTIVE_HOUSEHOLD_ID = '__sem_familia__';
 
+export interface MembroDoHousehold {
+  id: string;
+  household_id: string;
+  user_id: string;
+  papel: 'owner' | 'admin' | 'membro';
+  nome: string;
+  avatar_url: string | null;
+  created_at: string;
+}
+
 export function getStoredActiveHouseholdId(): string | null {
   if (typeof window === 'undefined') {
     return null;
@@ -88,6 +98,37 @@ export async function listarHouseholdsDoUsuario(
     .filter((household): household is HouseholdWithMembership => household !== null);
 
   return householdList;
+}
+
+export async function listarMembrosDoHousehold(
+  householdId: string,
+): Promise<MembroDoHousehold[]> {
+  const { data, error } = await supabase
+    .from('household_membros')
+    .select('id, household_id, user_id, papel, created_at, perfil:perfis(nome, avatar_url)')
+    .eq('household_id', householdId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+
+  type Row = {
+    id: string;
+    household_id: string;
+    user_id: string;
+    papel: 'owner' | 'admin' | 'membro';
+    created_at: string;
+    perfil: { nome: string; avatar_url: string | null } | null;
+  };
+
+  return ((data ?? []) as unknown as Row[]).map((row) => ({
+    id: row.id,
+    household_id: row.household_id,
+    user_id: row.user_id,
+    papel: row.papel,
+    created_at: row.created_at,
+    nome: row.perfil?.nome ?? 'Membro',
+    avatar_url: row.perfil?.avatar_url ?? null,
+  }));
 }
 
 export async function createHousehold(
