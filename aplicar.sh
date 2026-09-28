@@ -1,271 +1,477 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Bloco G1-c — Ajustes no service e hook de responsáveis
+# Bloco G1-d+ — Lista completa de membros do household
 # ============================================================
 # O que este script faz:
-# - Adiciona tipos de create/update em responsaveis.types.ts
-# - Adiciona criarResponsavel, atualizarResponsavel, excluirResponsavel
-#   no service
-# - Expõe mutations no hook useResponsaveis
+# - Adiciona listarMembrosDoHousehold no household.service
+# - Cria o hook useMembros
+# - Ajusta FamiliaPage para usar dados completos
+# - Ajusta FamilyMembersList para novo contrato
 #
-# Arquivos criados: nenhum
+# Arquivos criados:
+#   - src/core/household/hooks/useMembros.ts
+#
 # Arquivos alterados:
-#   - src/modules/financeiro/types/responsaveis.types.ts (sobrescrito)
-#   - src/modules/financeiro/services/responsaveis.service.ts (sobrescrito)
-#   - src/modules/financeiro/hooks/useResponsaveis.ts (sobrescrito)
+#   - src/core/household/household.service.ts (sobrescrito)
+#   - src/core/household/components/FamilyMembersList.tsx (sobrescrito)
+#   - src/core/household/pages/FamiliaPage.tsx (sobrescrito)
 # ============================================================
 
 set -e
 
-# Garante que as pastas existem (defesa contra erro de diretório)
-mkdir -p src/modules/financeiro/types
-mkdir -p src/modules/financeiro/services
-mkdir -p src/modules/financeiro/hooks
+mkdir -p src/core/household/hooks
+mkdir -p src/core/household/components
+mkdir -p src/core/household/pages
 
-# ---------- ALTERAR: types/responsaveis.types.ts ----------
-cat << 'EOF' > src/modules/financeiro/types/responsaveis.types.ts
-export interface Responsavel {
-  id: string;
-  household_id: string;
-  nome: string;
-  user_id: string | null;
-  ativo: boolean;
-}
+# ---------- CRIAR: core/household/hooks/useMembros.ts ----------
+cat << 'EOF' > src/core/household/hooks/useMembros.ts
+import { useQuery } from '@tanstack/react-query';
+import { useHousehold } from '../useHousehold';
+import { listarMembrosDoHousehold } from '../household.service';
 
-export interface ResponsavelInsertInput {
-  household_id: string;
-  nome: string;
-  user_id?: string | null;
-  ativo?: boolean;
-}
+export const membrosQueryKey = ['membros'];
 
-export interface ResponsavelUpdateInput {
-  nome?: string;
-  user_id?: string | null;
-  ativo?: boolean;
-}
+export function useMembros() {
+  const { activeHousehold } = useHousehold();
+  const householdId = activeHousehold?.id ?? null;
 
-export interface ResponsavelFormValues {
-  nome: string;
-  user_id: string;
-  ativo: boolean;
+  const query = useQuery({
+    queryKey: [...membrosQueryKey, householdId],
+    enabled: Boolean(householdId),
+    queryFn: () => listarMembrosDoHousehold(householdId as string),
+  });
+
+  return {
+    membros: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+  };
 }
 EOF
 
-# ---------- ALTERAR: services/responsaveis.service.ts ----------
-cat << 'EOF' > src/modules/financeiro/services/responsaveis.service.ts
+# ---------- ALTERAR: core/household/household.service.ts ----------
+cat << 'EOF' > src/core/household/household.service.ts
 import { supabase } from '@/lib/supabase';
+import { garantirPerfil } from '@/core/auth/auth.service';
+import { buildSeedCategorias } from '@/modules/financeiro/utils/seedCategorias';
+import { buildSeedResponsaveis } from '@/modules/financeiro/utils/seedResponsaveis';
 import type {
-  Responsavel,
-  ResponsavelInsertInput,
-  ResponsavelUpdateInput,
-} from '../types/responsaveis.types';
-import { buildSeedResponsaveis } from '../utils/seedResponsaveis';
+  CreateHouseholdInput,
+  Household,
+  HouseholdMember,
+  HouseholdWithMembership,
+} from './types';
 
-export async function listarResponsaveisAtivos(householdId: string): Promise<Responsavel[]> {
-  const { data, error } = await supabase
-    .from('responsaveis')
-    .select('id, household_id, nome, user_id, ativo')
-    .eq('household_id', householdId)
-    .eq('ativo', true)
-    .order('nome', { ascending: true });
+export const ACTIVE_HOUSEHOLD_STORAGE_KEY = 'mylife:household_ativo';
+export const NO_ACTIVE_HOUSEHOLD_ID = '__sem_familia__';
 
-  if (error) throw error;
-  return (data ?? []) as Responsavel[];
+export interface MembroDoHousehold {
+  id: string;
+  household_id: string;
+  user_id: string;
+  papel: 'owner' | 'admin' | 'membro';
+  nome: string;
+  avatar_url: string | null;
+  created_at: string;
 }
 
-export async function garantirResponsaveisPadrao(householdId: string): Promise<void> {
-  const { data, error } = await supabase
-    .from('responsaveis')
-    .select('nome')
-    .eq('household_id', householdId);
+export function getStoredActiveHouseholdId(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
 
-  if (error) throw error;
-
-  const existing = new Set((data ?? []).map((r) => r.nome));
-  const missing = buildSeedResponsaveis(householdId).filter((r) => !existing.has(r.nome));
-
-  if (missing.length === 0) return;
-
-  const { error: insertError } = await supabase.from('responsaveis').insert(missing);
-  if (insertError) throw insertError;
+  const storedValue = window.localStorage.getItem(ACTIVE_HOUSEHOLD_STORAGE_KEY);
+  return storedValue && storedValue.trim().length > 0 ? storedValue : null;
 }
 
-export async function criarResponsavel(
+export function setStoredActiveHouseholdId(householdId: string | null): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (!householdId) {
+    window.localStorage.setItem(ACTIVE_HOUSEHOLD_STORAGE_KEY, NO_ACTIVE_HOUSEHOLD_ID);
+    return;
+  }
+
+  window.localStorage.setItem(ACTIVE_HOUSEHOLD_STORAGE_KEY, householdId);
+}
+
+export async function listarHouseholdsDoUsuario(
+  userId: string,
+): Promise<HouseholdWithMembership[]> {
+  const { data: membershipsData, error: membershipsError } = await supabase
+    .from('household_membros')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
+
+  if (membershipsError) {
+    throw membershipsError;
+  }
+
+  const memberships = (membershipsData ?? []) as HouseholdMember[];
+
+  if (memberships.length === 0) {
+    return [];
+  }
+
+  const householdIds = memberships.map((membership) => membership.household_id);
+
+  const { data: householdsData, error: householdsError } = await supabase
+    .from('households')
+    .select('*')
+    .in('id', householdIds)
+    .order('created_at', { ascending: true });
+
+  if (householdsError) {
+    throw householdsError;
+  }
+
+  const households = (householdsData ?? []) as Household[];
+  const householdsById = new Map<string, Household>();
+
+  households.forEach((household) => {
+    householdsById.set(household.id, household);
+  });
+
+  const householdList: HouseholdWithMembership[] = memberships
+    .map((membership) => {
+      const household = householdsById.get(membership.household_id);
+
+      if (!household) {
+        return null;
+      }
+
+      return {
+        ...household,
+        membership,
+      };
+    })
+    .filter((household): household is HouseholdWithMembership => household !== null);
+
+  return householdList;
+}
+
+export async function listarMembrosDoHousehold(
   householdId: string,
-  input: ResponsavelInsertInput,
-): Promise<Responsavel> {
+): Promise<MembroDoHousehold[]> {
+  const { data, error } = await supabase
+    .from('household_membros')
+    .select('id, household_id, user_id, papel, created_at, perfil:perfis(nome, avatar_url)')
+    .eq('household_id', householdId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw error;
+
+  type Row = {
+    id: string;
+    household_id: string;
+    user_id: string;
+    papel: 'owner' | 'admin' | 'membro';
+    created_at: string;
+    perfil: { nome: string; avatar_url: string | null } | null;
+  };
+
+  return ((data ?? []) as unknown as Row[]).map((row) => ({
+    id: row.id,
+    household_id: row.household_id,
+    user_id: row.user_id,
+    papel: row.papel,
+    created_at: row.created_at,
+    nome: row.perfil?.nome ?? 'Membro',
+    avatar_url: row.perfil?.avatar_url ?? null,
+  }));
+}
+
+export async function createHousehold(
+  userId: string,
+  input: CreateHouseholdInput,
+): Promise<HouseholdWithMembership> {
   const nome = input.nome.trim();
 
   if (!nome) {
-    throw new Error('O nome do responsável é obrigatório.');
+    throw new Error('O nome da família é obrigatório.');
   }
 
-  const { data, error } = await supabase
-    .from('responsaveis')
+  await garantirPerfil(userId);
+
+  const { data: householdData, error: householdError } = await supabase
+    .from('households')
     .insert({
-      household_id: householdId,
       nome,
-      user_id: input.user_id ?? null,
-      ativo: input.ativo ?? true,
+      created_by: userId,
     })
     .select('*')
     .single();
 
-  if (error) {
-    if (error.code === '23505') {
-      throw new Error('Já existe um responsável com este nome nesta família.');
-    }
-    throw error;
+  if (householdError) {
+    throw householdError;
   }
 
-  return data as Responsavel;
-}
+  const household = householdData as Household;
 
-export async function atualizarResponsavel(
-  householdId: string,
-  responsavelId: string,
-  input: ResponsavelUpdateInput,
-): Promise<Responsavel> {
-  const payload: Record<string, unknown> = {};
-
-  if (input.nome !== undefined) {
-    const nome = input.nome.trim();
-    if (!nome) {
-      throw new Error('O nome do responsável não pode ficar em branco.');
-    }
-    payload.nome = nome;
-  }
-
-  if (input.user_id !== undefined) {
-    payload.user_id = input.user_id ?? null;
-  }
-
-  if (input.ativo !== undefined) {
-    payload.ativo = input.ativo;
-  }
-
-  const { data, error } = await supabase
-    .from('responsaveis')
-    .update(payload)
-    .eq('id', responsavelId)
-    .eq('household_id', householdId)
+  const { data: membershipData, error: membershipError } = await supabase
+    .from('household_membros')
+    .insert({
+      household_id: household.id,
+      user_id: userId,
+      papel: 'owner',
+    })
     .select('*')
     .single();
 
-  if (error) {
-    if (error.code === '23505') {
-      throw new Error('Já existe um responsável com este nome nesta família.');
+  if (membershipError) {
+    const { error: rollbackError } = await supabase
+      .from('households')
+      .delete()
+      .eq('id', household.id);
+
+    if (rollbackError) {
+      throw new Error(
+        'Não foi possível criar a família e a associação ao usuário. Tente novamente.',
+      );
     }
+
+    throw membershipError;
+  }
+
+  try {
+    const seedCategorias = buildSeedCategorias(household.id);
+
+    if (seedCategorias.length > 0) {
+      const { error: seedCategoriasError } = await supabase.from('categorias').insert(seedCategorias);
+
+      if (seedCategoriasError) {
+        throw seedCategoriasError;
+      }
+    }
+
+    const seedResponsaveis = buildSeedResponsaveis(household.id);
+
+    if (seedResponsaveis.length > 0) {
+      const { error: seedResponsaveisError } = await supabase.from('responsaveis').insert(seedResponsaveis);
+
+      if (seedResponsaveisError) {
+        throw seedResponsaveisError;
+      }
+    }
+  } catch {
+    await supabase.from('household_membros').delete().eq('household_id', household.id);
+    await supabase.from('households').delete().eq('id', household.id);
+
+    throw new Error(
+      'Não foi possível criar as categorias e responsáveis padrão da família. A criação foi cancelada.',
+    );
+  }
+
+  return {
+    ...household,
+    membership: membershipData as HouseholdMember,
+  };
+}
+
+export async function deleteHousehold(
+  userId: string,
+  householdId: string,
+): Promise<Household> {
+  const { data, error } = await supabase
+    .from('households')
+    .delete()
+    .eq('id', householdId)
+    .eq('created_by', userId)
+    .select('*');
+
+  if (error) {
     throw error;
   }
 
-  return data as Responsavel;
+  if (!data || data.length === 0) {
+    throw new Error(
+      'Não foi possível excluir a família. Verifique se você ainda tem permissão.',
+    );
+  }
+
+  return data[0] as Household;
 }
 
-export async function excluirResponsavel(
-  householdId: string,
-  responsavelId: string,
-): Promise<void> {
-  const { error } = await supabase
-    .from('responsaveis')
-    .delete()
-    .eq('id', responsavelId)
-    .eq('household_id', householdId);
+export const criarHousehold = createHousehold;
+EOF
 
-  if (error) throw error;
+# ---------- ALTERAR: components/FamilyMembersList.tsx ----------
+cat << 'EOF' > src/core/household/components/FamilyMembersList.tsx
+import { Crown, Shield, Users } from 'lucide-react';
+import type { MembroDoHousehold } from '../household.service';
+import type { HouseholdRole } from '../types';
+
+interface FamilyMembersListProps {
+  membros: MembroDoHousehold[];
+  isLoading?: boolean;
+}
+
+const papelLabels: Record<HouseholdRole, string> = {
+  owner: 'Dono',
+  admin: 'Administrador',
+  membro: 'Membro',
+};
+
+const papelIcons: Record<HouseholdRole, typeof Crown> = {
+  owner: Crown,
+  admin: Shield,
+  membro: Users,
+};
+
+export function FamilyMembersList({ membros, isLoading = false }: FamilyMembersListProps) {
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border border-canvas-300 bg-canvas-100 p-4 text-sm text-ink-500">
+        Carregando membros...
+      </div>
+    );
+  }
+
+  if (membros.length === 0) {
+    return (
+      <div className="rounded-lg border border-canvas-300 bg-canvas-100 p-4 text-sm text-ink-500">
+        Nenhum membro cadastrado.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {membros.map((membro) => {
+        const Icon = papelIcons[membro.papel] ?? Users;
+
+        return (
+          <div
+            key={membro.id}
+            className="flex items-center justify-between gap-3 rounded-lg border border-canvas-300 bg-white px-3 py-2.5"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 font-semibold overflow-hidden">
+                {membro.avatar_url ? (
+                  <img
+                    src={membro.avatar_url}
+                    alt={membro.nome}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  membro.nome.charAt(0).toUpperCase()
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-medium text-ink-900">{membro.nome}</div>
+                <div className="flex items-center gap-1 text-xs text-ink-500">
+                  <Icon className="h-3 w-3" />
+                  {papelLabels[membro.papel]}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 EOF
 
-# ---------- ALTERAR: hooks/useResponsaveis.ts ----------
-cat << 'EOF' > src/modules/financeiro/hooks/useResponsaveis.ts
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+# ---------- ALTERAR: pages/FamiliaPage.tsx ----------
+cat << 'EOF' > src/core/household/pages/FamiliaPage.tsx
+import { Link } from 'react-router-dom';
+import { Users } from 'lucide-react';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useHousehold } from '@/core/household/useHousehold';
-import {
-  atualizarResponsavel as atualizarResponsavelService,
-  criarResponsavel as criarResponsavelService,
-  excluirResponsavel as excluirResponsavelService,
-  garantirResponsaveisPadrao,
-  listarResponsaveisAtivos,
-} from '../services/responsaveis.service';
-import type {
-  ResponsavelFormValues,
-  ResponsavelInsertInput,
-  ResponsavelUpdateInput,
-} from '../types/responsaveis.types';
+import { useMembros } from '@/core/household/hooks/useMembros';
+import { FamilyInviteForm } from '../components/FamilyInviteForm';
+import { FamilyInvitesList } from '../components/FamilyInvitesList';
+import { FamilyMembersList } from '../components/FamilyMembersList';
 
-export const responsaveisQueryKey = ['responsaveis'];
+export default function FamiliaPage() {
+  const { activeHousehold, households } = useHousehold();
+  const { membros, isLoading: carregandoMembros } = useMembros();
 
-export function useResponsaveis() {
-  const { activeHousehold } = useHousehold();
-  const queryClient = useQueryClient();
-  const householdId = activeHousehold?.id ?? null;
+  if (!activeHousehold) {
+    const temFamilias = households.length > 0;
 
-  const query = useQuery({
-    queryKey: [...responsaveisQueryKey, householdId],
-    enabled: Boolean(householdId),
-    queryFn: async () => {
-      if (!householdId) return [];
-      await garantirResponsaveisPadrao(householdId);
-      return listarResponsaveisAtivos(householdId);
-    },
-  });
+    return (
+      <div className="mx-auto max-w-3xl">
+        <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Família</h1>
+        <div className="mt-6">
+          <EmptyState
+            title={temFamilias ? 'Selecione uma família' : 'Nenhuma família cadastrada'}
+            description={
+              temFamilias
+                ? 'Escolha qual família você quer gerenciar.'
+                : 'Para convidar membros, crie uma família primeiro.'
+            }
+            action={
+              <Link to={temFamilias ? '/selecionar-familia' : '/onboarding'} className="btn-primary">
+                {temFamilias ? 'Selecionar família' : 'Criar família'}
+              </Link>
+            }
+          />
+        </div>
+      </div>
+    );
+  }
 
-  const createMutation = useMutation({
-    mutationFn: (values: ResponsavelFormValues) => {
-      if (!householdId) throw new Error('Você precisa selecionar uma família antes de criar responsáveis.');
-      const input: ResponsavelInsertInput = {
-        household_id: householdId,
-        nome: values.nome,
-        user_id: values.user_id || null,
-        ativo: values.ativo,
-      };
-      return criarResponsavelService(householdId, input);
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: responsaveisQueryKey }),
-  });
+  const papelAtual = activeHousehold.membership.papel;
+  const podeConvidar = papelAtual === 'owner' || papelAtual === 'admin';
 
-  const updateMutation = useMutation({
-    mutationFn: ({
-      responsavelId,
-      values,
-    }: {
-      responsavelId: string;
-      values: ResponsavelFormValues;
-    }) => {
-      if (!householdId) throw new Error('Você precisa selecionar uma família antes de editar responsáveis.');
-      const input: ResponsavelUpdateInput = {
-        nome: values.nome,
-        user_id: values.user_id || null,
-        ativo: values.ativo,
-      };
-      return atualizarResponsavelService(householdId, responsavelId, input);
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: responsaveisQueryKey }),
-  });
+  return (
+    <div className="mx-auto max-w-4xl space-y-6">
+      <header className="flex items-center gap-3">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-brand-200 bg-brand-50 text-brand-600">
+          <Users className="h-5 w-5" />
+        </div>
+        <div>
+          <h1 className="font-display text-h2 font-semibold text-ink-900">
+            {activeHousehold.nome}
+          </h1>
+          <p className="text-xs text-ink-500">Gerencie os membros da sua família</p>
+        </div>
+      </header>
 
-  const deleteMutation = useMutation({
-    mutationFn: (responsavelId: string) => {
-      if (!householdId) throw new Error('Você precisa selecionar uma família antes de excluir responsáveis.');
-      return excluirResponsavelService(householdId, responsavelId);
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: responsaveisQueryKey }),
-  });
+      {podeConvidar ? (
+        <section className="card p-5">
+          <h2 className="font-display text-h3 text-ink-900">Convidar membro</h2>
+          <p className="mt-1 mb-4 text-xs text-ink-500">
+            O convite é criado com um link. Envie o link para a pessoa entrar na família.
+          </p>
+          <FamilyInviteForm />
+        </section>
+      ) : (
+        <section className="rounded-lg border border-canvas-300 bg-canvas-100 p-4 text-sm text-ink-500">
+          Apenas dono e administradores podem convidar novos membros.
+        </section>
+      )}
 
-  return {
-    responsaveis: query.data ?? [],
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
-    criarResponsavel: createMutation.mutateAsync,
-    atualizarResponsavel: updateMutation.mutateAsync,
-    excluirResponsavel: deleteMutation.mutateAsync,
-    isCreating: createMutation.isPending,
-    isUpdating: updateMutation.isPending,
-    isDeleting: deleteMutation.isPending,
-    refetch: query.refetch,
-  };
+      <section className="card p-5">
+        <h2 className="font-display text-h3 text-ink-900">
+          Membros ativos
+          {!carregandoMembros && membros.length > 0 ? (
+            <span className="ml-2 text-sm font-normal text-ink-500">({membros.length})</span>
+          ) : null}
+        </h2>
+        <p className="mt-1 mb-4 text-xs text-ink-500">
+          Pessoas que já aceitaram o convite e fazem parte desta família.
+        </p>
+        <FamilyMembersList membros={membros} isLoading={carregandoMembros} />
+      </section>
+
+      <section className="card p-5">
+        <h2 className="font-display text-h3 text-ink-900">Convites pendentes</h2>
+        <p className="mt-1 mb-4 text-xs text-ink-500">
+          Convites criados que ainda não foram aceitos.
+        </p>
+        <FamilyInvitesList />
+      </section>
+    </div>
+  );
 }
 EOF
 
@@ -273,7 +479,8 @@ echo ""
 echo "✅ Pronto."
 echo ""
 echo "Próximos passos:"
-echo "  1. git status              (deve listar 3 arquivos modificados)"
+echo "  1. git status              (deve listar 1 novo + 3 modificados)"
 echo "  2. npm run typecheck       (confirma que não quebrou tipos)"
-echo "  3. Se estiver OK: git add . && git commit -m \"feat: adiciona CRUD de responsaveis no service e hook\" && git push"
+echo "  3. npm run dev             (testa /familia novamente)"
+echo "  4. Se estiver OK: git add . && git commit -m \"feat: lista completa de membros do household\" && git push"
 echo ""
