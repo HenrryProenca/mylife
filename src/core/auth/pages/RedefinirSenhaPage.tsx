@@ -75,28 +75,28 @@ export default function RedefinirSenhaPage() {
   // Enquanto a sessão não estiver pronta, mostra um loading
   if (!sessaoPronta) {
     return (
-      <div className="min-h-screen grid place-items-center">
+      <div className="min-h-screen bg-canvas-100 grid place-items-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-full border-[3px] border-navy-600 border-t-brand-400 animate-spin" />
-          <div className="text-sm text-content-secondary">Verificando link…</div>
+          <div className="w-10 h-10 rounded-full border-[3px] border-canvas-300 border-t-brand-600 animate-spin" />
+          <div className="text-sm text-ink-500">Verificando link…</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen grid place-items-center px-4">
+    <div className="min-h-screen bg-canvas-100 grid place-items-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-[#06121a] mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600 text-white mb-4">
             <ShieldCheck className="w-6 h-6" />
           </div>
-          <h1 className="font-display text-h1 font-semibold tracking-tight">Definir nova senha</h1>
+          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Definir nova senha</h1>
         </div>
 
         <form onSubmit={onSubmit} className="card p-6 space-y-4">
           <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
               Nova senha
             </label>
             <input
@@ -111,7 +111,7 @@ export default function RedefinirSenhaPage() {
           </div>
 
           <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
               Confirmar senha
             </label>
             <input

@@ -28,14 +28,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center px-4">
+    <div className="min-h-screen bg-canvas-100 grid place-items-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-[#06121a] mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600 text-white mb-4">
             <LogIn className="w-6 h-6" />
           </div>
-          <h1 className="font-display text-h1 font-semibold tracking-tight">Entrar no MyLife</h1>
-          <p className="text-sm text-content-secondary mt-1">
+          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Entrar no MyLife</h1>
+          <p className="text-sm text-ink-500 mt-1">
             Acesse sua conta para continuar
           </p>
         </div>
@@ -46,7 +46,7 @@ export default function LoginPage() {
           autoComplete="on"
         >
           <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
               Email
             </label>
             <input
@@ -62,12 +62,12 @@ export default function LoginPage() {
 
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary">
+              <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500">
                 Senha
               </label>
               <Link
                 to="/recuperar-senha"
-                className="text-xs text-brand-400 hover:underline"
+                className="text-xs text-brand-600 hover:underline"
               >
                 Esqueci minha senha
               </Link>
@@ -91,9 +91,9 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-content-secondary mt-6">
+        <p className="text-center text-sm text-ink-500 mt-6">
           Não tem conta?{' '}
-          <Link to="/cadastro" className="text-brand-400 hover:underline">
+          <Link to="/cadastro" className="text-brand-600 hover:underline">
             Criar conta
           </Link>
         </p>

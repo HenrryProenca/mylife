@@ -25,10 +25,10 @@ export default function OnboardingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen grid place-items-center">
+      <div className="min-h-screen bg-canvas-100 grid place-items-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-full border-[3px] border-navy-600 border-t-brand-400 animate-spin" />
-          <div className="text-sm text-content-secondary">Verificando sua família…</div>
+          <div className="w-10 h-10 rounded-full border-[3px] border-canvas-300 border-t-brand-600 animate-spin" />
+          <div className="text-sm text-ink-500">Verificando sua família…</div>
         </div>
       </div>
     );
@@ -55,24 +55,24 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-navy-900 text-content-primary px-4 py-10">
+    <div className="min-h-screen bg-canvas-100 text-ink-900 px-4 py-10">
       <div className="mx-auto max-w-xl">
         <div className="card p-6 md:p-8">
           <div className="flex items-center gap-3 mb-6">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-[#04120a]">
+            <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-600 text-white">
               <Users className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-content-secondary">
+              <p className="text-xs uppercase tracking-[0.2em] text-ink-500">
                 Primeiros passos
               </p>
-              <h1 className="font-display text-h1 font-semibold tracking-tight">Criar minha família</h1>
+              <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Criar minha família</h1>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
+              <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
                 Nome da família
               </label>
               <input
@@ -85,14 +85,14 @@ export default function OnboardingPage() {
               />
             </div>
 
-            <div className="rounded-lg border border-navy-600 bg-navy-800/60 p-3 text-sm text-content-secondary">
-              <span className="font-medium text-content-primary">Sugestão:</span> {suggestedName}
+            <div className="rounded-lg border border-canvas-300 bg-white p-3 text-sm text-ink-500">
+              <span className="font-medium text-ink-900">Sugestão:</span> {suggestedName}
             </div>
 
             <div className="flex items-center gap-3">
               <Link
                 to="/"
-                className="flex-1 rounded-lg border border-navy-600 bg-navy-800 px-3 py-2.5 text-center text-sm font-medium text-content-secondary transition hover:text-content-primary"
+                className="flex-1 rounded-lg border border-canvas-300 bg-white px-3 py-2.5 text-center text-sm font-medium text-ink-500 transition hover:bg-canvas-200 hover:text-ink-900"
               >
                 Voltar para a home
               </Link>

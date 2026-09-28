@@ -15,8 +15,8 @@ export default function Sidebar() {
   const destinoFamilia = hasNoHousehold ? '/onboarding' : '/selecionar-familia';
 
   return (
-    <aside className="w-60 shrink-0 border-r border-navy-600 bg-navy-800/60 backdrop-blur-sm flex flex-col">
-      <div className="px-5 py-5 border-b border-navy-600">
+    <aside className="w-60 shrink-0 border-r border-canvas-300 bg-white flex flex-col">
+      <div className="px-5 py-5 border-b border-canvas-300">
         <button
           type="button"
           aria-label="Voltar para a home"
@@ -24,10 +24,10 @@ export default function Sidebar() {
           className="group text-left"
         >
           <div className="font-display text-lg font-semibold tracking-tight">
-          <span className="text-content-primary">My</span>
+          <span className="text-ink-900">My</span>
           <span className="text-brand-600">Life</span>
           </div>
-          <div className="text-xs text-content-secondary transition group-hover:text-content-primary">
+          <div className="text-xs text-ink-500 transition group-hover:text-ink-900">
             Sua vida organizada
           </div>
         </button>
@@ -37,25 +37,25 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={() => navigate(destinoFamilia)}
-          className="w-full rounded-xl border border-navy-600 bg-navy-800/60 p-3 text-left transition hover:border-brand-400/40 hover:bg-navy-800"
+          className="w-full rounded-xl border border-canvas-300 bg-white p-3 text-left transition hover:border-brand-400 hover:bg-canvas-200"
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600/10 text-brand-400">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
                 <Home className="h-4 w-4" />
               </div>
 
               <div className="min-w-0">
-                <div className="text-[10px] uppercase tracking-[0.18em] text-content-secondary">
+                <div className="text-[10px] uppercase tracking-[0.18em] text-ink-500">
                   {hasNoHousehold ? 'Minha família' : 'Família ativa'}
                 </div>
-                <div className="truncate text-sm font-semibold text-content-primary">
+                <div className="truncate text-sm font-semibold text-ink-900">
                   {householdLabel}
                 </div>
               </div>
             </div>
 
-            <ChevronRight className="h-4 w-4 text-content-secondary" />
+            <ChevronRight className="h-4 w-4 text-ink-400" />
           </div>
         </button>
       </div>
@@ -64,10 +64,10 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={() => setModulesOpen((open) => !open)}
-          className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-content-secondary transition hover:bg-navy-700/60 hover:text-content-primary"
+          className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-ink-500 transition hover:bg-canvas-200 hover:text-ink-900"
           aria-expanded={modulesOpen}
         >
-          <span className="flex items-center gap-2"><Menu className="h-4 w-4 text-brand-400" />Módulos</span>
+          <span className="flex items-center gap-2"><Menu className="h-4 w-4 text-brand-600" />Módulos</span>
           <ChevronDown className={`h-4 w-4 transition-transform ${modulesOpen ? '' : '-rotate-90'}`} />
         </button>
 
@@ -82,8 +82,8 @@ export default function Sidebar() {
                   [
                     'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
                     isActive
-                      ? 'bg-brand-600/15 text-brand-600'
-                      : 'text-content-secondary hover:text-content-primary hover:bg-navy-700/50',
+                      ? 'bg-brand-50 text-brand-700'
+                      : 'text-ink-500 hover:text-ink-900 hover:bg-canvas-200',
                   ].join(' ')
                 }
               >

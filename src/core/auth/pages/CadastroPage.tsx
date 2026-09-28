@@ -31,21 +31,21 @@ export default function CadastroPage() {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center px-4">
+    <div className="min-h-screen bg-canvas-100 grid place-items-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-[#06121a] mb-4">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600 text-white mb-4">
             <UserPlus className="w-6 h-6" />
           </div>
-          <h1 className="font-display text-h1 font-semibold tracking-tight">Criar conta</h1>
-          <p className="text-sm text-content-secondary mt-1">
+          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Criar conta</h1>
+          <p className="text-sm text-ink-500 mt-1">
             Comece a organizar sua vida financeira
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="card p-6 space-y-4">
           <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
               Nome
             </label>
             <input
@@ -60,7 +60,7 @@ export default function CadastroPage() {
           </div>
 
           <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
               Email
             </label>
             <input
@@ -74,7 +74,7 @@ export default function CadastroPage() {
           </div>
 
           <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
               Senha
             </label>
             <input
@@ -97,9 +97,9 @@ export default function CadastroPage() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-content-secondary mt-6">
+        <p className="text-center text-sm text-ink-500 mt-6">
           Já tem conta?{' '}
-          <Link to="/login" className="text-brand-400 hover:underline">
+          <Link to="/login" className="text-brand-600 hover:underline">
             Entrar
           </Link>
         </p>

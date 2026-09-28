@@ -34,14 +34,14 @@ export default function PerfilPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="font-display text-h1 font-semibold tracking-tight">Meu perfil</h1>
-      <p className="text-sm text-content-secondary mt-1">
+      <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Meu perfil</h1>
+      <p className="text-sm text-ink-500 mt-1">
         Informações básicas da sua conta
       </p>
 
       <form onSubmit={onSubmit} className="card p-6 mt-6 space-y-4">
         <div>
-          <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
+          <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
             Nome
           </label>
           <input
@@ -53,16 +53,16 @@ export default function PerfilPage() {
         </div>
 
         <div>
-          <label className="block text-xs uppercase tracking-wider font-semibold text-content-secondary mb-2">
+          <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
             Email
           </label>
           <input
             type="email"
             value={user?.email ?? ''}
             disabled
-            className="input-base text-content-secondary cursor-not-allowed"
+            className="input-base text-ink-400 cursor-not-allowed"
           />
-          <p className="text-xs text-content-faint mt-1">
+          <p className="text-xs text-ink-300 mt-1">
             O email não pode ser alterado por aqui.
           </p>
         </div>
