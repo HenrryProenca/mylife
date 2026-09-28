@@ -78,13 +78,12 @@ create table if not exists public.contas (
   tipo           text not null default 'conta_corrente'
                  check (tipo in ('conta_corrente','poupanca','carteira','investimento','outro')),
   instituicao    text,
-  saldo_inicial  numeric(14,2) not null default 0,
   ativa          boolean not null default true,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
 
-comment on table public.contas is 'Contas financeiras do household.';
+comment on table public.contas is 'Contas financeiras do household (etiquetas de origem/destino, sem saldo).';
 
 -- ============================================================================
 -- 6. RESPONSAVEIS
@@ -156,7 +155,6 @@ create table if not exists public.transacoes (
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
 
-  -- Coerência mínima de parcelamento
   constraint chk_parcela_coerente check (
     (parcelamento_id is null and parcela_atual is null and parcela_total is null)
     or
@@ -202,7 +200,7 @@ create index if not exists idx_categorias_household             on public.catego
 create index if not exists idx_contas_household                 on public.contas (household_id);
 create index if not exists idx_responsaveis_household           on public.responsaveis (household_id);
 create index if not exists idx_parcelamentos_household          on public.parcelamentos (household_id);
-create index if not exists idx_lista_mercado_household_status  on public.lista_mercado_itens (household_id, status);
+create index if not exists idx_lista_mercado_household_status   on public.lista_mercado_itens (household_id, status);
 
 -- ============================================================================
 -- TRIGGER: updated_at automático
@@ -267,8 +265,6 @@ create trigger on_auth_user_created
 -- ============================================================================
 -- FUNÇÃO AUXILIAR PARA RLS
 -- ============================================================================
--- Retorna true se o usuário autenticado pertence ao household informado.
--- SECURITY DEFINER para poder ler household_membros mesmo com RLS ligada.
 create or replace function public.is_household_member(h uuid)
 returns boolean
 language sql
@@ -360,7 +356,6 @@ create policy membros_select on public.household_membros
   for select to authenticated
   using ( user_id = auth.uid() or public.is_household_member(household_id) );
 
--- Só owner/admin do household pode adicionar/remover membros
 drop policy if exists membros_insert on public.household_membros;
 create policy membros_insert on public.household_membros
   for insert to authenticated
@@ -371,7 +366,7 @@ create policy membros_insert on public.household_membros
         and user_id = auth.uid()
         and papel in ('owner','admin')
     )
-    or user_id = auth.uid()  -- permite inserir o próprio owner logo após criar household
+    or user_id = auth.uid()
   );
 
 drop policy if exists membros_update on public.household_membros;
@@ -397,7 +392,7 @@ create policy membros_delete on public.household_membros
         and m2.user_id = auth.uid()
         and m2.papel = 'owner'
     )
-    or user_id = auth.uid()  -- pode sair do household
+    or user_id = auth.uid()
   );
 
 -- ---------- CATEGORIAS ----------
@@ -443,7 +438,7 @@ create policy lista_mercado_itens_all on public.lista_mercado_itens
   with check ( public.is_household_member(household_id) );
 
 -- ============================================================================
--- GRANTS (o Supabase já concede por padrão, mas garantimos explicitamente)
+-- GRANTS
 -- ============================================================================
 grant usage on schema public to anon, authenticated;
 
