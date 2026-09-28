@@ -1,3 +1,15 @@
+> ⚠️ ARQUIVO LEGADO
+>
+> Este documento foi substituído pelos 6 documentos oficiais:
+> PRD.md, ARCHITECTURE.md, RULES.md, DESIGN.md, TASK.md, MEMORY.md.
+>
+> Mantido apenas como referência histórica. Não usar como fonte de verdade.
+> Algumas seções (7, 8, 10) estão desatualizadas.
+>
+> Para contexto oficial, ver PRD.md e ARCHITECTURE.md.
+
+---
+
 # MyLife — Contexto do Projeto
 
 Este arquivo é a fonte de verdade do projeto. Toda IA, dev ou agente
