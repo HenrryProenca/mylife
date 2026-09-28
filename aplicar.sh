@@ -1,175 +1,405 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Bloco D — Modal com acessibilidade
+# Bloco E — Ajustes de fluxo
 # ============================================================
 # O que este script faz:
-# - Modal.tsx: adiciona ESC, clique no overlay, focus trap,
-#   bloqueio de scroll do body, foco inicial e retorno de foco
+# - RedefinirSenhaPage: navega para / em vez de /financeiro
+# - LoginPage: redireciona para / se já autenticado
+# - CadastroPage: redireciona para / se já autenticado
 #
 # Arquivos criados: nenhum
 # Arquivos alterados:
-#   - src/components/ui/Modal.tsx (sobrescrito)
+#   - src/core/auth/pages/RedefinirSenhaPage.tsx (sobrescrito)
+#   - src/core/auth/pages/LoginPage.tsx (sobrescrito)
+#   - src/core/auth/pages/CadastroPage.tsx (sobrescrito)
 # ============================================================
 
 set -e
 
-# --- src/components/ui/Modal.tsx ---
-cat << 'EOF' > src/components/ui/Modal.tsx
-import { useEffect, useRef, type ReactNode } from 'react';
-import { X } from 'lucide-react';
+# --- src/core/auth/pages/RedefinirSenhaPage.tsx ---
+cat << 'EOF' > src/core/auth/pages/RedefinirSenhaPage.tsx
+import { useState, useEffect, type FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { ShieldCheck } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { atualizarSenha } from '../auth.service';
 
-interface ModalProps {
-  open: boolean;
-  title: string;
-  description?: string;
-  children: ReactNode;
-  onClose: () => void;
-  footer?: ReactNode;
-  maxWidth?: string;
-}
+export default function RedefinirSenhaPage() {
+  const [senha, setSenha] = useState('');
+  const [confirma, setConfirma] = useState('');
+  const [carregando, setCarregando] = useState(false);
+  const [sessaoPronta, setSessaoPronta] = useState(false);
+  const navigate = useNavigate();
 
-const FOCUSABLE_SELECTOR =
-  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-export function Modal({
-  open,
-  title,
-  description,
-  children,
-  onClose,
-  footer,
-  maxWidth = 'max-w-lg',
-}: ModalProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
-
-  // ESC fecha, Tab faz focus trap, body scroll é bloqueado
   useEffect(() => {
-    if (!open) return;
+    const params = new URLSearchParams(window.location.search);
+    let code = params.get('code');
 
-    // Guarda o elemento que tinha foco antes de abrir
-    previousActiveElement.current = document.activeElement as HTMLElement | null;
+    if (!code && window.location.hash) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      code = hashParams.get('code');
+    }
 
-    // Bloqueia scroll do body
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    // Foca o primeiro elemento interativo dentro do modal
-    const focusFirst = () => {
-      const container = containerRef.current;
-      if (!container) return;
-      const focusables = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-      if (focusables.length > 0) {
-        focusables[0].focus();
-      } else {
-        container.focus();
-      }
-    };
-
-    // setTimeout para garantir que o DOM do modal está renderizado
-    const timeoutId = window.setTimeout(focusFirst, 0);
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        onClose();
-        return;
-      }
-
-      if (event.key !== 'Tab') return;
-
-      const container = containerRef.current;
-      if (!container) return;
-
-      const focusables = Array.from(
-        container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-      ).filter((el) => el.offsetParent !== null);
-
-      if (focusables.length === 0) {
-        event.preventDefault();
-        return;
-      }
-
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      const active = document.activeElement as HTMLElement | null;
-
-      if (event.shiftKey) {
-        if (active === first || !container.contains(active)) {
-          event.preventDefault();
-          last.focus();
+    if (code) {
+      supabase.auth
+        .exchangeCodeForSession(code)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Erro ao trocar código por sessão:', error);
+            toast.error('Link inválido ou expirado. Solicite um novo.');
+            navigate('/login');
+          } else {
+            setSessaoPronta(true);
+          }
+        });
+    } else {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) {
+          setSessaoPronta(true);
+        } else {
+          toast.error('Link inválido. Solicite um novo email de recuperação.');
+          navigate('/login');
         }
-      } else {
-        if (active === last || !container.contains(active)) {
-          event.preventDefault();
-          first.focus();
-        }
-      }
-    };
+      });
+    }
+  }, [navigate]);
 
-    document.addEventListener('keydown', handleKeyDown);
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (senha.length < 6) {
+      toast.error('A senha precisa ter no mínimo 6 caracteres.');
+      return;
+    }
+    if (senha !== confirma) {
+      toast.error('As senhas não coincidem.');
+      return;
+    }
+    setCarregando(true);
+    try {
+      await atualizarSenha(senha);
+      toast.success('Senha atualizada com sucesso!');
+      navigate('/', { replace: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao atualizar senha';
+      toast.error(msg);
+    } finally {
+      setCarregando(false);
+    }
+  }
 
-    return () => {
-      window.clearTimeout(timeoutId);
-      document.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-
-      // Devolve o foco ao elemento anterior
-      const previous = previousActiveElement.current;
-      if (previous && typeof previous.focus === 'function') {
-        previous.focus();
-      }
-    };
-  }, [open, onClose]);
-
-  if (!open) {
-    return null;
+  if (!sessaoPronta) {
+    return (
+      <div className="min-h-screen bg-canvas-100 grid place-items-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-[3px] border-canvas-300 border-t-brand-600 animate-spin" />
+          <div className="text-sm text-ink-500">Verificando link…</div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/40 p-4 backdrop-blur-sm"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div
-        ref={containerRef}
-        className={`w-full ${maxWidth} rounded-2xl border border-canvas-300 bg-white shadow-card-lg`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-        tabIndex={-1}
-      >
-        <div className="flex items-start justify-between gap-4 border-b border-canvas-300 px-5 py-4">
+    <div className="min-h-screen bg-canvas-100 grid place-items-center px-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600 text-white mb-4">
+            <ShieldCheck className="w-6 h-6" />
+          </div>
+          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Definir nova senha</h1>
+        </div>
+
+        <form onSubmit={onSubmit} className="card p-6 space-y-4">
           <div>
-            <h2 id="modal-title" className="font-display text-h3 text-ink-900">
-              {title}
-            </h2>
-            {description ? (
-              <p className="mt-1 text-sm text-ink-500">{description}</p>
-            ) : null}
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
+              Nova senha
+            </label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              className="input-base"
+              placeholder="Mínimo 6 caracteres"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
+              Confirmar senha
+            </label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              value={confirma}
+              onChange={(e) => setConfirma(e.target.value)}
+              className="input-base"
+              placeholder="Repita a senha"
+            />
           </div>
 
           <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg p-2 text-ink-500 transition hover:bg-canvas-200 hover:text-ink-900"
-            aria-label="Fechar modal"
+            type="submit"
+            disabled={carregando}
+            className="btn-primary w-full"
           >
-            <X className="h-4 w-4" />
+            {carregando ? 'Salvando…' : 'Salvar nova senha'}
           </button>
-        </div>
-
-        <div className="px-5 py-4">{children}</div>
-
-        {footer ? <div className="border-t border-canvas-300 px-5 py-4">{footer}</div> : null}
+        </form>
       </div>
     </div>
   );
+}
+EOF
+
+# --- src/core/auth/pages/LoginPage.tsx ---
+cat << 'EOF' > src/core/auth/pages/LoginPage.tsx
+import { useState, useEffect, type FormEvent } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { LogIn } from 'lucide-react';
+import { loginUsuario } from '../auth.service';
+import { useAuth } from '../useAuth';
+
+export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [carregando, setCarregando] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation() as { state?: { from?: { pathname: string } } };
+  const destino = location.state?.from?.pathname ?? '/';
+  const { isAuthenticated, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate(destino, { replace: true });
+    }
+  }, [loading, isAuthenticated, destino, navigate]);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    setCarregando(true);
+    try {
+      await loginUsuario({ email, senha });
+      toast.success('Bem-vindo de volta!');
+      navigate(destino, { replace: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao entrar';
+      toast.error(traduzirErro(msg));
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-canvas-100 grid place-items-center px-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600 text-white mb-4">
+            <LogIn className="w-6 h-6" />
+          </div>
+          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Entrar no MyLife</h1>
+          <p className="text-sm text-ink-500 mt-1">
+            Acesse sua conta para continuar
+          </p>
+        </div>
+
+        <form
+          onSubmit={onSubmit}
+          className="card p-6 space-y-4"
+          autoComplete="on"
+        >
+          <div>
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              required
+              autoFocus
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-base"
+              placeholder="voce@exemplo.com"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500">
+                Senha
+              </label>
+              <Link
+                to="/recuperar-senha"
+                className="text-xs text-brand-600 hover:underline"
+              >
+                Esqueci minha senha
+              </Link>
+            </div>
+            <input
+              type="password"
+              required
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              className="input-base"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={carregando}
+            className="btn-primary w-full"
+          >
+            {carregando ? 'Entrando…' : 'Entrar'}
+          </button>
+        </form>
+
+        <p className="text-center text-sm text-ink-500 mt-6">
+          Não tem conta?{' '}
+          <Link to="/cadastro" className="text-brand-600 hover:underline">
+            Criar conta
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function traduzirErro(msg: string) {
+  if (/invalid login credentials/i.test(msg)) return 'Email ou senha incorretos.';
+  if (/email not confirmed/i.test(msg)) return 'Confirme seu email antes de entrar.';
+  return msg;
+}
+EOF
+
+# --- src/core/auth/pages/CadastroPage.tsx ---
+cat << 'EOF' > src/core/auth/pages/CadastroPage.tsx
+import { useState, useEffect, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { UserPlus } from 'lucide-react';
+import { cadastrarUsuario } from '../auth.service';
+import { useAuth } from '../useAuth';
+
+export default function CadastroPage() {
+  const [nome, setNome] = useState('');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [carregando, setCarregando] = useState(false);
+  const navigate = useNavigate();
+  const { isAuthenticated, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [loading, isAuthenticated, navigate]);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (senha.length < 6) {
+      toast.error('A senha precisa ter no mínimo 6 caracteres.');
+      return;
+    }
+    setCarregando(true);
+    try {
+      await cadastrarUsuario({ nome, email, senha });
+      toast.success('Conta criada! Faça login para continuar.');
+      navigate('/login', { replace: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao criar conta';
+      toast.error(traduzirErro(msg));
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-canvas-100 grid place-items-center px-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600 text-white mb-4">
+            <UserPlus className="w-6 h-6" />
+          </div>
+          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Criar conta</h1>
+          <p className="text-sm text-ink-500 mt-1">
+            Comece a organizar sua vida financeira
+          </p>
+        </div>
+
+        <form onSubmit={onSubmit} className="card p-6 space-y-4">
+          <div>
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
+              Nome
+            </label>
+            <input
+              type="text"
+              required
+              autoFocus
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              className="input-base"
+              placeholder="Seu nome"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-base"
+              placeholder="voce@exemplo.com"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
+              Senha
+            </label>
+            <input
+              type="password"
+              required
+              minLength={6}
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              className="input-base"
+              placeholder="Mínimo 6 caracteres"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={carregando}
+            className="btn-primary w-full"
+          >
+            {carregando ? 'Criando…' : 'Criar conta'}
+          </button>
+        </form>
+
+        <p className="text-center text-sm text-ink-500 mt-6">
+          Já tem conta?{' '}
+          <Link to="/login" className="text-brand-600 hover:underline">
+            Entrar
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function traduzirErro(msg: string) {
+  if (/already registered|user already/i.test(msg)) return 'Este email já está cadastrado.';
+  if (/password should be at least/i.test(msg)) return 'A senha precisa ter no mínimo 6 caracteres.';
+  return msg;
 }
 EOF
 
@@ -179,6 +409,6 @@ echo ""
 echo "Próximos passos:"
 echo "  1. git diff                (confere as mudanças)"
 echo "  2. npm run typecheck       (confirma que não quebrou tipos)"
-echo "  3. Testar no navegador: abrir modal, ESC, clicar fora, Tab, Shift+Tab"
-echo "  4. Se estiver OK: git add . && git commit -m \"feat: adiciona acessibilidade ao Modal\" && git push"
+echo "  3. Testar no navegador: logout + /login autenticado + redefinir senha"
+echo "  4. Se estiver OK: git add . && git commit -m \"feat: ajusta fluxos de login, cadastro e redefinição de senha\" && git push"
 echo ""
