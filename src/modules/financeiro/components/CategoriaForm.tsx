@@ -79,14 +79,14 @@ export function CategoriaForm({
   return (
     <form onSubmit={handleSubmit(submit)} className="space-y-5">
       <div className="space-y-2">
-        <label htmlFor="categoria-nome" className="text-sm font-medium text-content-primary">
+        <label htmlFor="categoria-nome" className="text-sm font-medium text-ink-900">
           Nome
         </label>
         <input
           id="categoria-nome"
           type="text"
           {...register('nome')}
-          className="w-full rounded-xl border border-white/10 bg-navy-950 px-3 py-2.5 text-sm text-content-primary outline-none transition focus:border-brand-500"
+          className="input-base"
           placeholder="Ex: Alimentação"
         />
         {errors.nome ? (
@@ -96,13 +96,13 @@ export function CategoriaForm({
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <label htmlFor="categoria-tipo" className="text-sm font-medium text-content-primary">
+          <label htmlFor="categoria-tipo" className="text-sm font-medium text-ink-900">
             Tipo
           </label>
           <select
             id="categoria-tipo"
             {...register('tipo')}
-            className="w-full rounded-xl border border-white/10 bg-navy-950 px-3 py-2.5 text-sm text-content-primary outline-none transition focus:border-brand-500"
+            className="input-base"
           >
             <option value="receita">Receita</option>
             <option value="despesa">Despesa</option>
@@ -110,13 +110,13 @@ export function CategoriaForm({
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="categoria-natureza" className="text-sm font-medium text-content-primary">
+          <label htmlFor="categoria-natureza" className="text-sm font-medium text-ink-900">
             Natureza
           </label>
           <select
             id="categoria-natureza"
             {...register('natureza')}
-            className="w-full rounded-xl border border-white/10 bg-navy-950 px-3 py-2.5 text-sm text-content-primary outline-none transition focus:border-brand-500"
+            className="input-base"
           >
             {selectedTipo === 'receita' ? (
               <option value="outro">Outro</option>
@@ -134,33 +134,33 @@ export function CategoriaForm({
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <label htmlFor="categoria-cor" className="text-sm font-medium text-content-primary">
+          <label htmlFor="categoria-cor" className="text-sm font-medium text-ink-900">
             Cor
           </label>
           <input
             id="categoria-cor"
             type="text"
             {...register('cor')}
-            className="w-full rounded-xl border border-white/10 bg-navy-950 px-3 py-2.5 text-sm text-content-primary outline-none transition focus:border-brand-500"
-            placeholder="#2F63F2"
+            className="input-base"
+            placeholder="#5872C9"
           />
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="categoria-icone" className="text-sm font-medium text-content-primary">
+          <label htmlFor="categoria-icone" className="text-sm font-medium text-ink-900">
             Ícone
           </label>
           <input
             id="categoria-icone"
             type="text"
             {...register('icone')}
-            className="w-full rounded-xl border border-white/10 bg-navy-950 px-3 py-2.5 text-sm text-content-primary outline-none transition focus:border-brand-500"
+            className="input-base"
             placeholder="WalletCards"
           />
         </div>
       </div>
 
-      <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-content-primary">
+      <label className="flex items-center gap-3 rounded-xl border border-canvas-300 bg-canvas-100 px-3 py-2.5 text-sm text-ink-900">
         <input type="checkbox" {...register('ativa')} className="h-4 w-4 accent-brand-600" />
         Categoria ativa
       </label>
@@ -169,14 +169,14 @@ export function CategoriaForm({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-content-primary transition hover:bg-white/10"
+          className="btn-ghost"
         >
           Cancelar
         </button>
         <button
           type="submit"
           disabled={isSubmitting}
-          className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-500 disabled:cursor-not-allowed disabled:opacity-60"
+          className="btn-primary"
         >
           {isSubmitting ? 'Salvando...' : mode === 'edit' ? 'Salvar alterações' : 'Criar categoria'}
         </button>

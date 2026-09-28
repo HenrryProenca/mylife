@@ -21,6 +21,13 @@ const naturezaIconMap: Record<CategoriaNatureza, typeof Tags> = {
   outro: Tags,
 };
 
+const naturezaLabelMap: Record<CategoriaNatureza, string> = {
+  fixo: 'Fixo',
+  variavel: 'Variável',
+  investimento: 'Investimento',
+  outro: 'Outro',
+};
+
 export function CategoriaList({
   tipo,
   categorias,
@@ -39,7 +46,7 @@ export function CategoriaList({
           <button
             type="button"
             onClick={onCreate}
-            className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-500"
+            className="btn-primary"
           >
             + Nova categoria
           </button>
@@ -62,15 +69,9 @@ export function CategoriaList({
         return (
           <section key={`${tipo}-${natureza}`} className="space-y-3">
             <div className="flex items-center gap-2">
-              <Icon className="h-4 w-4 text-brand-400" />
-              <h3 className="font-display text-h4 text-content-primary">
-                {natureza === 'fixo'
-                  ? 'Fixo'
-                  : natureza === 'variavel'
-                    ? 'Variável'
-                    : natureza === 'investimento'
-                      ? 'Investimento'
-                      : 'Outro'}
+              <Icon className="h-4 w-4 text-brand-600" />
+              <h3 className="font-display text-h3 text-ink-900">
+                {naturezaLabelMap[natureza]}
               </h3>
               <Badge variant="neutral">{itens.length}</Badge>
             </div>
