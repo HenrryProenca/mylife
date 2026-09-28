@@ -1,197 +1,270 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Bloco G1-b — Types + Services + Hooks de convites
+# Bloco G1-c — Ajustes no service e hook de responsáveis
 # ============================================================
 # O que este script faz:
-# - Cria os tipos do domínio de convites
-# - Cria o service que conversa com household_convites e as RPCs
-# - Cria o hook React Query que consome o service
+# - Adiciona tipos de create/update em responsaveis.types.ts
+# - Adiciona criarResponsavel, atualizarResponsavel, excluirResponsavel
+#   no service
+# - Expõe mutations no hook useResponsaveis
 #
-# Arquivos criados:
-#   - src/core/household/convites.types.ts
-#   - src/core/household/convites.service.ts
-#   - src/core/household/hooks/useConvites.ts
-#
-# Arquivos alterados: nenhum
+# Arquivos criados: nenhum
+# Arquivos alterados:
+#   - src/modules/financeiro/types/responsaveis.types.ts (sobrescrito)
+#   - src/modules/financeiro/services/responsaveis.service.ts (sobrescrito)
+#   - src/modules/financeiro/hooks/useResponsaveis.ts (sobrescrito)
 # ============================================================
 
 set -e
 
-# ---------- CRIAR: core/household/convites.types.ts ----------
-cat << 'EOF' > src/core/household/convites.types.ts
-export type ConviteStatus = 'pendente' | 'aceito' | 'cancelado';
-export type ConvitePapel = 'admin' | 'membro';
+# Garante que as pastas existem (defesa contra erro de diretório)
+mkdir -p src/modules/financeiro/types
+mkdir -p src/modules/financeiro/services
+mkdir -p src/modules/financeiro/hooks
 
-export interface Convite {
+# ---------- ALTERAR: types/responsaveis.types.ts ----------
+cat << 'EOF' > src/modules/financeiro/types/responsaveis.types.ts
+export interface Responsavel {
   id: string;
   household_id: string;
-  email_convidado: string;
-  convidado_por: string;
-  papel: ConvitePapel;
-  status: ConviteStatus;
-  token: string;
-  created_at: string;
-  updated_at: string;
+  nome: string;
+  user_id: string | null;
+  ativo: boolean;
 }
 
-export interface CriarConviteInput {
-  email_convidado: string;
-  papel: ConvitePapel;
-}
-
-export interface AceitarConviteResultado {
+export interface ResponsavelInsertInput {
   household_id: string;
-  membership_id: string;
-  papel: ConvitePapel;
+  nome: string;
+  user_id?: string | null;
+  ativo?: boolean;
+}
+
+export interface ResponsavelUpdateInput {
+  nome?: string;
+  user_id?: string | null;
+  ativo?: boolean;
+}
+
+export interface ResponsavelFormValues {
+  nome: string;
+  user_id: string;
+  ativo: boolean;
 }
 EOF
 
-# ---------- CRIAR: core/household/convites.service.ts ----------
-cat << 'EOF' > src/core/household/convites.service.ts
+# ---------- ALTERAR: services/responsaveis.service.ts ----------
+cat << 'EOF' > src/modules/financeiro/services/responsaveis.service.ts
 import { supabase } from '@/lib/supabase';
 import type {
-  AceitarConviteResultado,
-  Convite,
-  ConvitePapel,
-  CriarConviteInput,
-} from './convites.types';
+  Responsavel,
+  ResponsavelInsertInput,
+  ResponsavelUpdateInput,
+} from '../types/responsaveis.types';
+import { buildSeedResponsaveis } from '../utils/seedResponsaveis';
 
-export async function listarConvitesDoHousehold(
-  householdId: string,
-): Promise<Convite[]> {
+export async function listarResponsaveisAtivos(householdId: string): Promise<Responsavel[]> {
   const { data, error } = await supabase
-    .from('household_convites')
-    .select('*')
+    .from('responsaveis')
+    .select('id, household_id, nome, user_id, ativo')
     .eq('household_id', householdId)
-    .eq('status', 'pendente')
-    .order('created_at', { ascending: false });
+    .eq('ativo', true)
+    .order('nome', { ascending: true });
 
   if (error) throw error;
-  return (data ?? []) as Convite[];
+  return (data ?? []) as Responsavel[];
 }
 
-export async function criarConvite(
-  householdId: string,
-  userId: string,
-  input: CriarConviteInput,
-): Promise<Convite> {
-  const email = input.email_convidado.trim().toLowerCase();
+export async function garantirResponsaveisPadrao(householdId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('responsaveis')
+    .select('nome')
+    .eq('household_id', householdId);
 
-  if (!email || !email.includes('@')) {
-    throw new Error('Informe um email válido.');
+  if (error) throw error;
+
+  const existing = new Set((data ?? []).map((r) => r.nome));
+  const missing = buildSeedResponsaveis(householdId).filter((r) => !existing.has(r.nome));
+
+  if (missing.length === 0) return;
+
+  const { error: insertError } = await supabase.from('responsaveis').insert(missing);
+  if (insertError) throw insertError;
+}
+
+export async function criarResponsavel(
+  householdId: string,
+  input: ResponsavelInsertInput,
+): Promise<Responsavel> {
+  const nome = input.nome.trim();
+
+  if (!nome) {
+    throw new Error('O nome do responsável é obrigatório.');
   }
 
   const { data, error } = await supabase
-    .from('household_convites')
+    .from('responsaveis')
     .insert({
       household_id: householdId,
-      email_convidado: email,
-      convidado_por: userId,
-      papel: input.papel,
-      status: 'pendente',
+      nome,
+      user_id: input.user_id ?? null,
+      ativo: input.ativo ?? true,
     })
     .select('*')
     .single();
 
   if (error) {
     if (error.code === '23505') {
-      throw new Error('Já existe um convite pendente para este email nesta família.');
+      throw new Error('Já existe um responsável com este nome nesta família.');
     }
     throw error;
   }
 
-  return data as Convite;
+  return data as Responsavel;
 }
 
-export async function cancelarConvite(conviteId: string): Promise<void> {
-  const { error } = await supabase.rpc('cancelar_convite', {
-    p_convite_id: conviteId,
-  });
+export async function atualizarResponsavel(
+  householdId: string,
+  responsavelId: string,
+  input: ResponsavelUpdateInput,
+): Promise<Responsavel> {
+  const payload: Record<string, unknown> = {};
 
-  if (error) throw error;
-}
+  if (input.nome !== undefined) {
+    const nome = input.nome.trim();
+    if (!nome) {
+      throw new Error('O nome do responsável não pode ficar em branco.');
+    }
+    payload.nome = nome;
+  }
 
-export async function buscarConvitePorToken(token: string): Promise<Convite | null> {
+  if (input.user_id !== undefined) {
+    payload.user_id = input.user_id ?? null;
+  }
+
+  if (input.ativo !== undefined) {
+    payload.ativo = input.ativo;
+  }
+
   const { data, error } = await supabase
-    .from('household_convites')
+    .from('responsaveis')
+    .update(payload)
+    .eq('id', responsavelId)
+    .eq('household_id', householdId)
     .select('*')
-    .eq('token', token)
-    .maybeSingle();
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('Já existe um responsável com este nome nesta família.');
+    }
+    throw error;
+  }
+
+  return data as Responsavel;
+}
+
+export async function excluirResponsavel(
+  householdId: string,
+  responsavelId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('responsaveis')
+    .delete()
+    .eq('id', responsavelId)
+    .eq('household_id', householdId);
 
   if (error) throw error;
-  return (data as Convite | null) ?? null;
 }
-
-export async function aceitarConvite(token: string): Promise<AceitarConviteResultado> {
-  const { data, error } = await supabase.rpc('aceitar_convite', {
-    p_token: token,
-  });
-
-  if (error) throw error;
-  return data as AceitarConviteResultado;
-}
-
-export function montarLinkConvite(token: string): string {
-  const base = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${base}/aceitar-convite?token=${token}`;
-}
-
-export const convitePapelLabels: Record<ConvitePapel, string> = {
-  admin: 'Administrador',
-  membro: 'Membro',
-};
 EOF
 
-# ---------- CRIAR: core/household/hooks/useConvites.ts ----------
-cat << 'EOF' > src/core/household/hooks/useConvites.ts
+# ---------- ALTERAR: hooks/useResponsaveis.ts ----------
+cat << 'EOF' > src/modules/financeiro/hooks/useResponsaveis.ts
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/core/auth/useAuth';
 import { useHousehold } from '@/core/household/useHousehold';
 import {
-  cancelarConvite as cancelarConviteService,
-  criarConvite as criarConviteService,
-  listarConvitesDoHousehold,
-} from '../convites.service';
-import type { CriarConviteInput } from '../convites.types';
+  atualizarResponsavel as atualizarResponsavelService,
+  criarResponsavel as criarResponsavelService,
+  excluirResponsavel as excluirResponsavelService,
+  garantirResponsaveisPadrao,
+  listarResponsaveisAtivos,
+} from '../services/responsaveis.service';
+import type {
+  ResponsavelFormValues,
+  ResponsavelInsertInput,
+  ResponsavelUpdateInput,
+} from '../types/responsaveis.types';
 
-export const convitesQueryKey = ['convites'];
+export const responsaveisQueryKey = ['responsaveis'];
 
-export function useConvites() {
-  const { user } = useAuth();
+export function useResponsaveis() {
   const { activeHousehold } = useHousehold();
   const queryClient = useQueryClient();
   const householdId = activeHousehold?.id ?? null;
 
   const query = useQuery({
-    queryKey: [...convitesQueryKey, householdId],
+    queryKey: [...responsaveisQueryKey, householdId],
     enabled: Boolean(householdId),
-    queryFn: () => listarConvitesDoHousehold(householdId as string),
+    queryFn: async () => {
+      if (!householdId) return [];
+      await garantirResponsaveisPadrao(householdId);
+      return listarResponsaveisAtivos(householdId);
+    },
   });
 
   const createMutation = useMutation({
-    mutationFn: (input: CriarConviteInput) => {
-      if (!householdId) throw new Error('Você precisa selecionar uma família antes de convidar.');
-      if (!user) throw new Error('Você precisa estar autenticado.');
-      return criarConviteService(householdId, user.id, input);
+    mutationFn: (values: ResponsavelFormValues) => {
+      if (!householdId) throw new Error('Você precisa selecionar uma família antes de criar responsáveis.');
+      const input: ResponsavelInsertInput = {
+        household_id: householdId,
+        nome: values.nome,
+        user_id: values.user_id || null,
+        ativo: values.ativo,
+      };
+      return criarResponsavelService(householdId, input);
     },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: convitesQueryKey }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: responsaveisQueryKey }),
   });
 
-  const cancelMutation = useMutation({
-    mutationFn: (conviteId: string) => cancelarConviteService(conviteId),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: convitesQueryKey }),
+  const updateMutation = useMutation({
+    mutationFn: ({
+      responsavelId,
+      values,
+    }: {
+      responsavelId: string;
+      values: ResponsavelFormValues;
+    }) => {
+      if (!householdId) throw new Error('Você precisa selecionar uma família antes de editar responsáveis.');
+      const input: ResponsavelUpdateInput = {
+        nome: values.nome,
+        user_id: values.user_id || null,
+        ativo: values.ativo,
+      };
+      return atualizarResponsavelService(householdId, responsavelId, input);
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: responsaveisQueryKey }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (responsavelId: string) => {
+      if (!householdId) throw new Error('Você precisa selecionar uma família antes de excluir responsáveis.');
+      return excluirResponsavelService(householdId, responsavelId);
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: responsaveisQueryKey }),
   });
 
   return {
-    convites: query.data ?? [],
+    responsaveis: query.data ?? [],
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
-    criarConvite: createMutation.mutateAsync,
-    cancelarConvite: cancelMutation.mutateAsync,
+    criarResponsavel: createMutation.mutateAsync,
+    atualizarResponsavel: updateMutation.mutateAsync,
+    excluirResponsavel: deleteMutation.mutateAsync,
     isCreating: createMutation.isPending,
-    isCancelling: cancelMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+    refetch: query.refetch,
   };
 }
 EOF
@@ -200,7 +273,7 @@ echo ""
 echo "✅ Pronto."
 echo ""
 echo "Próximos passos:"
-echo "  1. git status              (deve listar 3 novos arquivos)"
+echo "  1. git status              (deve listar 3 arquivos modificados)"
 echo "  2. npm run typecheck       (confirma que não quebrou tipos)"
-echo "  3. Se estiver OK: git add . && git commit -m \"feat: adiciona types, service e hook de convites\" && git push"
+echo "  3. Se estiver OK: git add . && git commit -m \"feat: adiciona CRUD de responsaveis no service e hook\" && git push"
 echo ""
