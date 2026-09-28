@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Home, Menu } from 'lucide-react';
+import { ChevronDown, ChevronRight, Home, Menu, Users } from 'lucide-react';
 import { MYLIFE_MODULES } from './modules';
 import { useHousehold } from '@/core/household/useHousehold';
 
@@ -11,8 +11,22 @@ export default function Sidebar() {
   const [modulesOpen, setModulesOpen] = useState(true);
 
   const hasNoHousehold = households.length === 0;
+  const temMultiplas = households.length > 1;
   const householdLabel = activeHousehold?.nome ?? 'Sem família';
-  const destinoFamilia = hasNoHousehold ? '/onboarding' : '/selecionar-familia';
+
+  // Se não tem família: vai criar. Se tem 1: vai direto para gerenciar.
+  // Se tem 2+: abre o seletor.
+  const destinoFamilia = hasNoHousehold
+    ? '/onboarding'
+    : temMultiplas
+    ? '/selecionar-familia'
+    : '/familia';
+
+  const legendaFamilia = hasNoHousehold
+    ? 'Minha família'
+    : temMultiplas
+    ? 'Trocar família'
+    : 'Família ativa';
 
   return (
     <aside className="w-60 shrink-0 border-r border-canvas-300 bg-white flex flex-col">
@@ -24,8 +38,8 @@ export default function Sidebar() {
           className="group text-left"
         >
           <div className="font-display text-lg font-semibold tracking-tight">
-          <span className="text-ink-900">My</span>
-          <span className="text-brand-600">Life</span>
+            <span className="text-ink-900">My</span>
+            <span className="text-brand-600">Life</span>
           </div>
           <div className="text-xs text-ink-500 transition group-hover:text-ink-900">
             Sua vida organizada
@@ -47,7 +61,7 @@ export default function Sidebar() {
 
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-ink-500">
-                  {hasNoHousehold ? 'Minha família' : 'Família ativa'}
+                  {legendaFamilia}
                 </div>
                 <div className="truncate text-sm font-semibold text-ink-900">
                   {householdLabel}
@@ -67,33 +81,53 @@ export default function Sidebar() {
           className="mb-2 flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-ink-500 transition hover:bg-canvas-200 hover:text-ink-900"
           aria-expanded={modulesOpen}
         >
-          <span className="flex items-center gap-2"><Menu className="h-4 w-4 text-brand-600" />Módulos</span>
+          <span className="flex items-center gap-2">
+            <Menu className="h-4 w-4 text-brand-600" />
+            Módulos
+          </span>
           <ChevronDown className={`h-4 w-4 transition-transform ${modulesOpen ? '' : '-rotate-90'}`} />
         </button>
 
-        {modulesOpen ? modules.map((mod) => {
-          const Icon = mod.icon;
+        {modulesOpen
+          ? modules.map((mod) => {
+              const Icon = mod.icon;
 
-          return (
-            <div key={mod.id}>
-              <NavLink
-                to={mod.path}
-                className={({ isActive }) =>
-                  [
-                    'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
-                    isActive
-                      ? 'bg-brand-50 text-brand-700'
-                      : 'text-ink-500 hover:text-ink-900 hover:bg-canvas-200',
-                  ].join(' ')
-                }
-              >
-                <Icon className="w-4 h-4" />
-                {mod.label}
-              </NavLink>
+              return (
+                <NavLink
+                  key={mod.id}
+                  to={mod.path}
+                  className={({ isActive }) =>
+                    [
+                      'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
+                      isActive
+                        ? 'bg-brand-50 text-brand-700'
+                        : 'text-ink-500 hover:text-ink-900 hover:bg-canvas-200',
+                    ].join(' ')
+                  }
+                >
+                  <Icon className="w-4 h-4" />
+                  {mod.label}
+                </NavLink>
+              );
+            })
+          : null}
 
-            </div>
-          );
-        }) : null}
+        {activeHousehold ? (
+          <NavLink
+            to="/familia"
+            className={({ isActive }) =>
+              [
+                'mt-2 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
+                isActive
+                  ? 'bg-brand-50 text-brand-700'
+                  : 'text-ink-500 hover:text-ink-900 hover:bg-canvas-200',
+              ].join(' ')
+            }
+          >
+            <Users className="w-4 h-4" />
+            Gerenciar família
+          </NavLink>
+        ) : null}
       </nav>
     </aside>
   );

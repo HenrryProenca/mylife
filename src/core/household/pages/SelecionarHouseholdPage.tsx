@@ -1,4 +1,4 @@
-import { Check, Home, Minus, Trash2, Users, X } from 'lucide-react';
+import { Check, Home, Minus, Settings, Trash2, Users, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -34,6 +34,11 @@ export default function SelecionarHouseholdPage() {
     setActiveHousehold(householdId);
     toast.success('Família selecionada.');
     navigate('/', { replace: true });
+  }
+
+  function handleConfigure(householdId: string) {
+    setActiveHousehold(householdId);
+    navigate('/familia', { replace: true });
   }
 
   function handleClearSelection() {
@@ -126,27 +131,38 @@ export default function SelecionarHouseholdPage() {
                     className="min-w-0 flex-1 text-left py-2"
                   >
                     <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-canvas-200 border border-canvas-300">
-                        <Home className="h-4 w-4 text-brand-600" />
-                      </div>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-canvas-200 border border-canvas-300">
+                          <Home className="h-4 w-4 text-brand-600" />
+                        </div>
 
-                      <div className="min-w-0">
-                        <div className="truncate font-semibold text-ink-900">{household.nome}</div>
-                        <div className="text-xs text-ink-500 uppercase tracking-wider">
-                          {household.membership.papel}
+                        <div className="min-w-0">
+                          <div className="truncate font-semibold text-ink-900">{household.nome}</div>
+                          <div className="text-xs text-ink-500 uppercase tracking-wider">
+                            {household.membership.papel}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {selected ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
-                        <Check className="h-3.5 w-3.5" />
-                        Ativa
-                      </span>
-                    ) : null}
-                  </div>
+                      {selected ? (
+                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
+                          <Check className="h-3.5 w-3.5" />
+                          Ativa
+                        </span>
+                      ) : null}
+                    </div>
                   </button>
+
+                  <button
+                    type="button"
+                    aria-label={`Configurar ${household.nome}`}
+                    title="Configurar família"
+                    onClick={() => handleConfigure(household.id)}
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-500 transition hover:bg-brand-50 hover:text-brand-600"
+                  >
+                    <Settings className="h-4 w-4" />
+                  </button>
+
                   {household.membership.papel === 'owner' ? (
                     <button
                       type="button"
