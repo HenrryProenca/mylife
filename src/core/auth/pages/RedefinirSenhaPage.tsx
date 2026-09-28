@@ -12,13 +12,10 @@ export default function RedefinirSenhaPage() {
   const [sessaoPronta, setSessaoPronta] = useState(false);
   const navigate = useNavigate();
 
-  // Efeito para trocar o código da URL por uma sessão válida
   useEffect(() => {
-    // O Supabase pode enviar o code na query string (?code=...) ou no hash (#code=...)
     const params = new URLSearchParams(window.location.search);
     let code = params.get('code');
 
-    // Se não achou na query string, tenta no hash
     if (!code && window.location.hash) {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       code = hashParams.get('code');
@@ -37,7 +34,6 @@ export default function RedefinirSenhaPage() {
           }
         });
     } else {
-      // Fallback: verifica se já existe uma sessão ativa
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
           setSessaoPronta(true);
@@ -63,7 +59,7 @@ export default function RedefinirSenhaPage() {
     try {
       await atualizarSenha(senha);
       toast.success('Senha atualizada com sucesso!');
-      navigate('/financeiro', { replace: true });
+      navigate('/', { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao atualizar senha';
       toast.error(msg);
@@ -72,7 +68,6 @@ export default function RedefinirSenhaPage() {
     }
   }
 
-  // Enquanto a sessão não estiver pronta, mostra um loading
   if (!sessaoPronta) {
     return (
       <div className="min-h-screen bg-canvas-100 grid place-items-center">

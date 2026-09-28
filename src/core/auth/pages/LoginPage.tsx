@@ -1,8 +1,9 @@
-    import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { LogIn } from 'lucide-react';
 import { loginUsuario } from '../auth.service';
+import { useAuth } from '../useAuth';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -11,6 +12,13 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation() as { state?: { from?: { pathname: string } } };
   const destino = location.state?.from?.pathname ?? '/';
+  const { isAuthenticated, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate(destino, { replace: true });
+    }
+  }, [loading, isAuthenticated, destino, navigate]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();

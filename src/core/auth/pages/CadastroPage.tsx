@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { UserPlus } from 'lucide-react';
 import { cadastrarUsuario } from '../auth.service';
+import { useAuth } from '../useAuth';
 
 export default function CadastroPage() {
   const [nome, setNome] = useState('');
@@ -10,6 +11,13 @@ export default function CadastroPage() {
   const [senha, setSenha] = useState('');
   const [carregando, setCarregando] = useState(false);
   const navigate = useNavigate();
+  const { isAuthenticated, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [loading, isAuthenticated, navigate]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -112,4 +120,4 @@ function traduzirErro(msg: string) {
   if (/already registered|user already/i.test(msg)) return 'Este email já está cadastrado.';
   if (/password should be at least/i.test(msg)) return 'A senha precisa ter no mínimo 6 caracteres.';
   return msg;
-}   
+}
