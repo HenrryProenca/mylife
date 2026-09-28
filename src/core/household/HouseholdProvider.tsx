@@ -95,7 +95,7 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
     setStoredActiveHouseholdId(householdId);
   }, []);
 
-  const createHousehold = useCallback(
+  const createHouseholdAction = useCallback(
     async (input: CreateHouseholdInput) => {
       if (!user) {
         throw new Error('É necessário estar autenticado para criar uma família.');
@@ -104,7 +104,7 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
       setCreating(true);
 
       try {
-        const household = await createHouseholdService(user.id, input);
+        const household = await createHousehold(user.id, input);
 
         setHouseholds((previousHouseholds) => {
           const alreadyExists = previousHouseholds.some(
@@ -131,7 +131,7 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
     [user],
   );
 
-  const deleteHousehold = useCallback(
+  const deleteHouseholdAction = useCallback(
     async (householdId: string) => {
       if (!user) {
         throw new Error('É necessário estar autenticado para excluir uma família.');
@@ -161,20 +161,25 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
       hasHousehold: households.length > 0,
       setActiveHousehold,
       refreshHouseholds,
-      createHousehold,
-      deleteHousehold,
+      createHousehold: createHouseholdAction,
+      deleteHousehold: deleteHouseholdAction,
     }),
-    [activeHousehold, activeHouseholdId, aplicarHouseholds, authLoading, createHousehold, creating, deleting, deleteHousehold, households, loading, refreshHouseholds, setActiveHousehold],
+    [
+      households,
+      activeHouseholdId,
+      activeHousehold,
+      authLoading,
+      loading,
+      creating,
+      deleting,
+      setActiveHousehold,
+      refreshHouseholds,
+      createHouseholdAction,
+      deleteHouseholdAction,
+    ],
   );
 
   return (
     <HouseholdContext.Provider value={value}>{children}</HouseholdContext.Provider>
   );
-}
-
-async function createHouseholdService(
-  userId: string,
-  input: CreateHouseholdInput,
-): Promise<HouseholdWithMembership> {
-  return createHousehold(userId, input);
 }

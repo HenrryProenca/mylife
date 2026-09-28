@@ -1,7 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/core/auth/useAuth';
 import { useHousehold } from '@/core/household/useHousehold';
-import { atualizarStatusTransacao, atualizarTransacao, criarTransacao, excluirTransacao, listarTransacoes } from '../services/transacoes.service';
+import {
+  atualizarTransacao,
+  criarTransacao,
+  excluirTransacao,
+  listarTransacoes,
+} from '../services/transacoes.service';
 import type { Transacao, TransacaoFormValues, TransacaoInsertInput } from '../types/transacoes.types';
 
 export const transacoesQueryKey = ['transacoes'];
@@ -23,14 +28,6 @@ export function useTransacoes(inicio?: string, fim?: string) {
       if (!householdId || !user) throw new Error('Você precisa selecionar uma família e estar autenticado.');
       const input: TransacaoInsertInput = { ...values, household_id: householdId, created_by: user.id };
       return criarTransacao(input);
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: transacoesQueryKey }),
-  });
-
-  const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: Transacao['status'] }) => {
-      if (!householdId) throw new Error('Você precisa selecionar uma família antes de atualizar o lançamento.');
-      return atualizarStatusTransacao(householdId, id, status);
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: transacoesQueryKey }),
   });
@@ -59,10 +56,8 @@ export function useTransacoes(inicio?: string, fim?: string) {
     criarTransacao: createMutation.mutateAsync,
     atualizarTransacao: updateMutation.mutateAsync,
     excluirTransacao: deleteMutation.mutateAsync,
-    atualizarStatus: statusMutation.mutateAsync,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
-    isUpdatingStatus: statusMutation.isPending,
   };
 }

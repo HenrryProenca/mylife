@@ -14,14 +14,3 @@ export interface AuthState {
   loading: boolean;
   isAuthenticated: boolean;
 }
-
-export interface CredenciaisLogin {
-  email: string;
-  senha: string;
-}
-
-export interface CredenciaisCadastro {
-  nome: string;
-  email: string;
-  senha: string;
-}

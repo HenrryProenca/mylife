@@ -11,7 +11,6 @@ import OnboardingPage from './core/household/pages/OnboardingPage';
 import SelecionarHouseholdPage from './core/household/pages/SelecionarHouseholdPage';
 import PerfilPage from './core/usuarios/pages/PerfilPage';
 import DashboardPage from './modules/financeiro/pages/DashboardPage';
-import CategoriasPage from './modules/financeiro/pages/CategoriasPage';
 import ListaMercadoPage from './modules/lista-mercado/pages/ListaMercadoPage';
 
 export const router = createBrowserRouter([
@@ -38,7 +37,6 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <HomePage /> },
               { path: 'financeiro', element: <DashboardPage /> },
-              { path: 'financeiro/categorias', element: <CategoriasPage /> },
               { path: 'lista-mercado', element: <ListaMercadoPage /> },
               { path: 'perfil', element: <PerfilPage /> },
             ],
