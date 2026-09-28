@@ -12,3 +12,15 @@ export interface ResponsavelInsertInput {
   user_id?: string | null;
   ativo?: boolean;
 }
+
+export interface ResponsavelUpdateInput {
+  nome?: string;
+  user_id?: string | null;
+  ativo?: boolean;
+}
+
+export interface ResponsavelFormValues {
+  nome: string;
+  user_id: string;
+  ativo: boolean;
+}

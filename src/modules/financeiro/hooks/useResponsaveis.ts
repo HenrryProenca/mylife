@@ -1,11 +1,23 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useHousehold } from '@/core/household/useHousehold';
-import { garantirResponsaveisPadrao, listarResponsaveisAtivos } from '../services/responsaveis.service';
+import {
+  atualizarResponsavel as atualizarResponsavelService,
+  criarResponsavel as criarResponsavelService,
+  excluirResponsavel as excluirResponsavelService,
+  garantirResponsaveisPadrao,
+  listarResponsaveisAtivos,
+} from '../services/responsaveis.service';
+import type {
+  ResponsavelFormValues,
+  ResponsavelInsertInput,
+  ResponsavelUpdateInput,
+} from '../types/responsaveis.types';
 
 export const responsaveisQueryKey = ['responsaveis'];
 
 export function useResponsaveis() {
   const { activeHousehold } = useHousehold();
+  const queryClient = useQueryClient();
   const householdId = activeHousehold?.id ?? null;
 
   const query = useQuery({
@@ -18,5 +30,58 @@ export function useResponsaveis() {
     },
   });
 
-  return { responsaveis: query.data ?? [], isLoading: query.isLoading };
+  const createMutation = useMutation({
+    mutationFn: (values: ResponsavelFormValues) => {
+      if (!householdId) throw new Error('Você precisa selecionar uma família antes de criar responsáveis.');
+      const input: ResponsavelInsertInput = {
+        household_id: householdId,
+        nome: values.nome,
+        user_id: values.user_id || null,
+        ativo: values.ativo,
+      };
+      return criarResponsavelService(householdId, input);
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: responsaveisQueryKey }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({
+      responsavelId,
+      values,
+    }: {
+      responsavelId: string;
+      values: ResponsavelFormValues;
+    }) => {
+      if (!householdId) throw new Error('Você precisa selecionar uma família antes de editar responsáveis.');
+      const input: ResponsavelUpdateInput = {
+        nome: values.nome,
+        user_id: values.user_id || null,
+        ativo: values.ativo,
+      };
+      return atualizarResponsavelService(householdId, responsavelId, input);
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: responsaveisQueryKey }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (responsavelId: string) => {
+      if (!householdId) throw new Error('Você precisa selecionar uma família antes de excluir responsáveis.');
+      return excluirResponsavelService(householdId, responsavelId);
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: responsaveisQueryKey }),
+  });
+
+  return {
+    responsaveis: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    criarResponsavel: createMutation.mutateAsync,
+    atualizarResponsavel: updateMutation.mutateAsync,
+    excluirResponsavel: deleteMutation.mutateAsync,
+    isCreating: createMutation.isPending,
+    isUpdating: updateMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+    refetch: query.refetch,
+  };
 }
