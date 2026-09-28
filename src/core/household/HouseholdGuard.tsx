@@ -8,10 +8,10 @@ export function HouseholdGuard() {
 
   if (authLoading || householdLoading) {
     return (
-      <div className="min-h-screen grid place-items-center">
+      <div className="min-h-screen grid place-items-center bg-canvas-100">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 rounded-full border-[3px] border-navy-600 border-t-brand-400 animate-spin" />
-          <div className="text-sm text-content-secondary">Carregando sua família…</div>
+          <div className="w-10 h-10 rounded-full border-[3px] border-canvas-300 border-t-brand-600 animate-spin" />
+          <div className="text-sm text-ink-500">Carregando sua família…</div>
         </div>
       </div>
     );
