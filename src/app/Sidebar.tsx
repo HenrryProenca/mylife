@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Home, Menu, Users } from 'lucide-react';
+import { ChevronDown, ChevronRight, Home, Menu } from 'lucide-react';
 import { MYLIFE_MODULES } from './modules';
 import { useHousehold } from '@/core/household/useHousehold';
 
@@ -11,22 +11,8 @@ export default function Sidebar() {
   const [modulesOpen, setModulesOpen] = useState(true);
 
   const hasNoHousehold = households.length === 0;
-  const temMultiplas = households.length > 1;
   const householdLabel = activeHousehold?.nome ?? 'Sem família';
-
-  // Se não tem família: vai criar. Se tem 1: vai direto para gerenciar.
-  // Se tem 2+: abre o seletor.
-  const destinoFamilia = hasNoHousehold
-    ? '/onboarding'
-    : temMultiplas
-    ? '/selecionar-familia'
-    : '/familia';
-
-  const legendaFamilia = hasNoHousehold
-    ? 'Minha família'
-    : temMultiplas
-    ? 'Trocar família'
-    : 'Família ativa';
+  const destinoFamilia = hasNoHousehold ? '/onboarding' : '/selecionar-familia';
 
   return (
     <aside className="w-60 shrink-0 border-r border-canvas-300 bg-white flex flex-col">
@@ -61,7 +47,7 @@ export default function Sidebar() {
 
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-ink-500">
-                  {legendaFamilia}
+                  {hasNoHousehold ? 'Minha família' : 'Família ativa'}
                 </div>
                 <div className="truncate text-sm font-semibold text-ink-900">
                   {householdLabel}
@@ -111,23 +97,6 @@ export default function Sidebar() {
               );
             })
           : null}
-
-        {activeHousehold ? (
-          <NavLink
-            to="/familia"
-            className={({ isActive }) =>
-              [
-                'mt-2 flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
-                isActive
-                  ? 'bg-brand-50 text-brand-700'
-                  : 'text-ink-500 hover:text-ink-900 hover:bg-canvas-200',
-              ].join(' ')
-            }
-          >
-            <Users className="w-4 h-4" />
-            Gerenciar família
-          </NavLink>
-        ) : null}
       </nav>
     </aside>
   );

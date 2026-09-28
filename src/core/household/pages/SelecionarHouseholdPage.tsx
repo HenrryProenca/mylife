@@ -1,11 +1,13 @@
-import { Check, Home, Minus, Settings, Trash2, Users, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Home, Minus, Trash2, Users, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useHousehold } from '@/core/household/useHousehold';
+import { GerenciarFamiliaPanel } from '../components/GerenciarFamiliaPanel';
 
 export default function SelecionarHouseholdPage() {
   const navigate = useNavigate();
+  const [gerenciandoId, setGerenciandoId] = useState<string | null>(null);
   const [familiaParaExcluir, setFamiliaParaExcluir] = useState<{
     id: string;
     nome: string;
@@ -36,9 +38,8 @@ export default function SelecionarHouseholdPage() {
     navigate('/', { replace: true });
   }
 
-  function handleConfigure(householdId: string) {
-    setActiveHousehold(householdId);
-    navigate('/familia', { replace: true });
+  function handleToggleGerenciar(householdId: string) {
+    setGerenciandoId((atual) => (atual === householdId ? null : householdId));
   }
 
   function handleClearSelection() {
@@ -52,9 +53,7 @@ export default function SelecionarHouseholdPage() {
   }
 
   async function confirmarExclusao() {
-    if (!familiaParaExcluir) {
-      return;
-    }
+    if (!familiaParaExcluir) return;
 
     try {
       await deleteHousehold(familiaParaExcluir.id);
@@ -78,7 +77,9 @@ export default function SelecionarHouseholdPage() {
               <p className="text-xs uppercase tracking-[0.2em] text-ink-500">
                 Família
               </p>
-              <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Selecionar família</h1>
+              <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">
+                Selecionar família
+              </h1>
             </div>
           </div>
 
@@ -100,7 +101,9 @@ export default function SelecionarHouseholdPage() {
                   </div>
                   <div className="min-w-0">
                     <div className="font-semibold text-ink-900">Sem família</div>
-                    <div className="text-xs text-ink-500">Usar o app sem selecionar uma família</div>
+                    <div className="text-xs text-ink-500">
+                      Usar o app sem selecionar uma família
+                    </div>
                   </div>
                 </div>
                 {activeHouseholdId === null || activeHouseholdId === '__sem_familia__' ? (
@@ -114,66 +117,87 @@ export default function SelecionarHouseholdPage() {
 
             {households.map((household) => {
               const selected = household.id === activeHouseholdId;
+              const gerenciando = gerenciandoId === household.id;
 
               return (
                 <div
                   key={household.id}
                   className={[
-                    'w-full flex items-center gap-2 rounded-xl border px-4 py-2 transition',
+                    'rounded-xl border transition',
                     selected
                       ? 'border-brand-500 bg-brand-50'
-                      : 'border-canvas-300 bg-white hover:border-canvas-400',
+                      : 'border-canvas-300 bg-white',
                   ].join(' ')}
                 >
-                  <button
-                    type="button"
-                    onClick={() => handleSelect(household.id)}
-                    className="min-w-0 flex-1 text-left py-2"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-canvas-200 border border-canvas-300">
-                          <Home className="h-4 w-4 text-brand-600" />
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="truncate font-semibold text-ink-900">{household.nome}</div>
-                          <div className="text-xs text-ink-500 uppercase tracking-wider">
-                            {household.membership.papel}
-                          </div>
-                        </div>
-                      </div>
-
-                      {selected ? (
-                        <span className="inline-flex items-center gap-2 rounded-full border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
-                          <Check className="h-3.5 w-3.5" />
-                          Ativa
-                        </span>
-                      ) : null}
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    aria-label={`Configurar ${household.nome}`}
-                    title="Configurar família"
-                    onClick={() => handleConfigure(household.id)}
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-500 transition hover:bg-brand-50 hover:text-brand-600"
-                  >
-                    <Settings className="h-4 w-4" />
-                  </button>
-
-                  {household.membership.papel === 'owner' ? (
+                  <div className="flex items-center gap-2 px-4 py-2">
                     <button
                       type="button"
-                      aria-label={`Excluir ${household.nome}`}
-                      title="Excluir família"
-                      disabled={deleting}
-                      onClick={() => solicitarExclusao(household.id, household.nome)}
-                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-500 transition hover:bg-state-error/10 hover:text-state-error disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => handleSelect(household.id)}
+                      className="min-w-0 flex-1 text-left py-2"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-canvas-200 border border-canvas-300">
+                            <Home className="h-4 w-4 text-brand-600" />
+                          </div>
+
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold text-ink-900">
+                              {household.nome}
+                            </div>
+                            <div className="text-xs text-ink-500 uppercase tracking-wider">
+                              {household.membership.papel}
+                            </div>
+                          </div>
+                        </div>
+
+                        {selected ? (
+                          <span className="inline-flex items-center gap-2 rounded-full border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
+                            <Check className="h-3.5 w-3.5" />
+                            Ativa
+                          </span>
+                        ) : null}
+                      </div>
                     </button>
+
+                    <button
+                      type="button"
+                      aria-label={gerenciando ? 'Fechar gerenciamento' : `Gerenciar ${household.nome}`}
+                      title={gerenciando ? 'Fechar' : 'Gerenciar família'}
+                      onClick={() => handleToggleGerenciar(household.id)}
+                      className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-ink-500 transition hover:bg-brand-50 hover:text-brand-600"
+                    >
+                      {gerenciando ? (
+                        <>
+                          <ChevronDown className="h-4 w-4" />
+                          Fechar
+                        </>
+                      ) : (
+                        <>
+                          Gerenciar
+                          <ChevronRight className="h-4 w-4" />
+                        </>
+                      )}
+                    </button>
+
+                    {household.membership.papel === 'owner' ? (
+                      <button
+                        type="button"
+                        aria-label={`Excluir ${household.nome}`}
+                        title="Excluir família"
+                        disabled={deleting}
+                        onClick={() => solicitarExclusao(household.id, household.nome)}
+                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-500 transition hover:bg-state-error/10 hover:text-state-error disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {gerenciando ? (
+                    <div className="border-t border-canvas-300 bg-canvas-50 p-4 animate-fade-in">
+                      <GerenciarFamiliaPanel household={household} />
+                    </div>
                   ) : null}
                 </div>
               );
