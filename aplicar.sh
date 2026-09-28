@@ -1,56 +1,21 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Bloco G1-d+ — Lista completa de membros do household
+# Debug — Melhora o log de erro do createHousehold
 # ============================================================
 # O que este script faz:
-# - Adiciona listarMembrosDoHousehold no household.service
-# - Cria o hook useMembros
-# - Ajusta FamiliaPage para usar dados completos
-# - Ajusta FamilyMembersList para novo contrato
+# - Separa os blocos try/catch dos seeds de categorias e responsáveis
+# - Loga a mensagem real do erro no console do navegador
+# - Propaga a mensagem específica do erro para o toast
 #
-# Arquivos criados:
-#   - src/core/household/hooks/useMembros.ts
-#
+# Arquivos criados: nenhum
 # Arquivos alterados:
 #   - src/core/household/household.service.ts (sobrescrito)
-#   - src/core/household/components/FamilyMembersList.tsx (sobrescrito)
-#   - src/core/household/pages/FamiliaPage.tsx (sobrescrito)
 # ============================================================
 
 set -e
 
-mkdir -p src/core/household/hooks
-mkdir -p src/core/household/components
-mkdir -p src/core/household/pages
-
-# ---------- CRIAR: core/household/hooks/useMembros.ts ----------
-cat << 'EOF' > src/core/household/hooks/useMembros.ts
-import { useQuery } from '@tanstack/react-query';
-import { useHousehold } from '../useHousehold';
-import { listarMembrosDoHousehold } from '../household.service';
-
-export const membrosQueryKey = ['membros'];
-
-export function useMembros() {
-  const { activeHousehold } = useHousehold();
-  const householdId = activeHousehold?.id ?? null;
-
-  const query = useQuery({
-    queryKey: [...membrosQueryKey, householdId],
-    enabled: Boolean(householdId),
-    queryFn: () => listarMembrosDoHousehold(householdId as string),
-  });
-
-  return {
-    membros: query.data ?? [],
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
-    refetch: query.refetch,
-  };
-}
-EOF
+mkdir -p src/core/household
 
 # ---------- ALTERAR: core/household/household.service.ts ----------
 cat << 'EOF' > src/core/household/household.service.ts
@@ -209,6 +174,7 @@ export async function createHousehold(
     .single();
 
   if (householdError) {
+    console.error('[createHousehold] erro ao criar household:', householdError);
     throw householdError;
   }
 
@@ -225,47 +191,54 @@ export async function createHousehold(
     .single();
 
   if (membershipError) {
-    const { error: rollbackError } = await supabase
-      .from('households')
-      .delete()
-      .eq('id', household.id);
-
-    if (rollbackError) {
-      throw new Error(
-        'Não foi possível criar a família e a associação ao usuário. Tente novamente.',
-      );
-    }
-
+    console.error('[createHousehold] erro ao criar membership:', membershipError);
+    await supabase.from('households').delete().eq('id', household.id);
     throw membershipError;
   }
 
+  // ---------- SEED DE CATEGORIAS ----------
   try {
     const seedCategorias = buildSeedCategorias(household.id);
 
     if (seedCategorias.length > 0) {
-      const { error: seedCategoriasError } = await supabase.from('categorias').insert(seedCategorias);
+      const { error: seedCategoriasError } = await supabase
+        .from('categorias')
+        .insert(seedCategorias);
 
       if (seedCategoriasError) {
+        console.error('[createHousehold] erro ao inserir categorias:', seedCategoriasError);
         throw seedCategoriasError;
       }
     }
-
-    const seedResponsaveis = buildSeedResponsaveis(household.id);
-
-    if (seedResponsaveis.length > 0) {
-      const { error: seedResponsaveisError } = await supabase.from('responsaveis').insert(seedResponsaveis);
-
-      if (seedResponsaveisError) {
-        throw seedResponsaveisError;
-      }
-    }
-  } catch {
+  } catch (error) {
     await supabase.from('household_membros').delete().eq('household_id', household.id);
     await supabase.from('households').delete().eq('id', household.id);
 
-    throw new Error(
-      'Não foi possível criar as categorias e responsáveis padrão da família. A criação foi cancelada.',
-    );
+    const msg = error instanceof Error ? error.message : 'erro desconhecido';
+    throw new Error(`Falha ao criar categorias padrão: ${msg}`);
+  }
+
+  // ---------- SEED DE RESPONSÁVEIS ----------
+  try {
+    const seedResponsaveis = buildSeedResponsaveis(household.id);
+
+    if (seedResponsaveis.length > 0) {
+      const { error: seedResponsaveisError } = await supabase
+        .from('responsaveis')
+        .insert(seedResponsaveis);
+
+      if (seedResponsaveisError) {
+        console.error('[createHousehold] erro ao inserir responsáveis:', seedResponsaveisError);
+        throw seedResponsaveisError;
+      }
+    }
+  } catch (error) {
+    await supabase.from('categorias').delete().eq('household_id', household.id);
+    await supabase.from('household_membros').delete().eq('household_id', household.id);
+    await supabase.from('households').delete().eq('id', household.id);
+
+    const msg = error instanceof Error ? error.message : 'erro desconhecido';
+    throw new Error(`Falha ao criar responsáveis padrão: ${msg}`);
   }
 
   return {
@@ -301,186 +274,13 @@ export async function deleteHousehold(
 export const criarHousehold = createHousehold;
 EOF
 
-# ---------- ALTERAR: components/FamilyMembersList.tsx ----------
-cat << 'EOF' > src/core/household/components/FamilyMembersList.tsx
-import { Crown, Shield, Users } from 'lucide-react';
-import type { MembroDoHousehold } from '../household.service';
-import type { HouseholdRole } from '../types';
-
-interface FamilyMembersListProps {
-  membros: MembroDoHousehold[];
-  isLoading?: boolean;
-}
-
-const papelLabels: Record<HouseholdRole, string> = {
-  owner: 'Dono',
-  admin: 'Administrador',
-  membro: 'Membro',
-};
-
-const papelIcons: Record<HouseholdRole, typeof Crown> = {
-  owner: Crown,
-  admin: Shield,
-  membro: Users,
-};
-
-export function FamilyMembersList({ membros, isLoading = false }: FamilyMembersListProps) {
-  if (isLoading) {
-    return (
-      <div className="rounded-lg border border-canvas-300 bg-canvas-100 p-4 text-sm text-ink-500">
-        Carregando membros...
-      </div>
-    );
-  }
-
-  if (membros.length === 0) {
-    return (
-      <div className="rounded-lg border border-canvas-300 bg-canvas-100 p-4 text-sm text-ink-500">
-        Nenhum membro cadastrado.
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      {membros.map((membro) => {
-        const Icon = papelIcons[membro.papel] ?? Users;
-
-        return (
-          <div
-            key={membro.id}
-            className="flex items-center justify-between gap-3 rounded-lg border border-canvas-300 bg-white px-3 py-2.5"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600 font-semibold overflow-hidden">
-                {membro.avatar_url ? (
-                  <img
-                    src={membro.avatar_url}
-                    alt={membro.nome}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  membro.nome.charAt(0).toUpperCase()
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-ink-900">{membro.nome}</div>
-                <div className="flex items-center gap-1 text-xs text-ink-500">
-                  <Icon className="h-3 w-3" />
-                  {papelLabels[membro.papel]}
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-EOF
-
-# ---------- ALTERAR: pages/FamiliaPage.tsx ----------
-cat << 'EOF' > src/core/household/pages/FamiliaPage.tsx
-import { Link } from 'react-router-dom';
-import { Users } from 'lucide-react';
-import { EmptyState } from '@/components/ui/EmptyState';
-import { useHousehold } from '@/core/household/useHousehold';
-import { useMembros } from '@/core/household/hooks/useMembros';
-import { FamilyInviteForm } from '../components/FamilyInviteForm';
-import { FamilyInvitesList } from '../components/FamilyInvitesList';
-import { FamilyMembersList } from '../components/FamilyMembersList';
-
-export default function FamiliaPage() {
-  const { activeHousehold, households } = useHousehold();
-  const { membros, isLoading: carregandoMembros } = useMembros();
-
-  if (!activeHousehold) {
-    const temFamilias = households.length > 0;
-
-    return (
-      <div className="mx-auto max-w-3xl">
-        <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Família</h1>
-        <div className="mt-6">
-          <EmptyState
-            title={temFamilias ? 'Selecione uma família' : 'Nenhuma família cadastrada'}
-            description={
-              temFamilias
-                ? 'Escolha qual família você quer gerenciar.'
-                : 'Para convidar membros, crie uma família primeiro.'
-            }
-            action={
-              <Link to={temFamilias ? '/selecionar-familia' : '/onboarding'} className="btn-primary">
-                {temFamilias ? 'Selecionar família' : 'Criar família'}
-              </Link>
-            }
-          />
-        </div>
-      </div>
-    );
-  }
-
-  const papelAtual = activeHousehold.membership.papel;
-  const podeConvidar = papelAtual === 'owner' || papelAtual === 'admin';
-
-  return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <header className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-brand-200 bg-brand-50 text-brand-600">
-          <Users className="h-5 w-5" />
-        </div>
-        <div>
-          <h1 className="font-display text-h2 font-semibold text-ink-900">
-            {activeHousehold.nome}
-          </h1>
-          <p className="text-xs text-ink-500">Gerencie os membros da sua família</p>
-        </div>
-      </header>
-
-      {podeConvidar ? (
-        <section className="card p-5">
-          <h2 className="font-display text-h3 text-ink-900">Convidar membro</h2>
-          <p className="mt-1 mb-4 text-xs text-ink-500">
-            O convite é criado com um link. Envie o link para a pessoa entrar na família.
-          </p>
-          <FamilyInviteForm />
-        </section>
-      ) : (
-        <section className="rounded-lg border border-canvas-300 bg-canvas-100 p-4 text-sm text-ink-500">
-          Apenas dono e administradores podem convidar novos membros.
-        </section>
-      )}
-
-      <section className="card p-5">
-        <h2 className="font-display text-h3 text-ink-900">
-          Membros ativos
-          {!carregandoMembros && membros.length > 0 ? (
-            <span className="ml-2 text-sm font-normal text-ink-500">({membros.length})</span>
-          ) : null}
-        </h2>
-        <p className="mt-1 mb-4 text-xs text-ink-500">
-          Pessoas que já aceitaram o convite e fazem parte desta família.
-        </p>
-        <FamilyMembersList membros={membros} isLoading={carregandoMembros} />
-      </section>
-
-      <section className="card p-5">
-        <h2 className="font-display text-h3 text-ink-900">Convites pendentes</h2>
-        <p className="mt-1 mb-4 text-xs text-ink-500">
-          Convites criados que ainda não foram aceitos.
-        </p>
-        <FamilyInvitesList />
-      </section>
-    </div>
-  );
-}
-EOF
-
 echo ""
 echo "✅ Pronto."
 echo ""
 echo "Próximos passos:"
-echo "  1. git status              (deve listar 1 novo + 3 modificados)"
-echo "  2. npm run typecheck       (confirma que não quebrou tipos)"
-echo "  3. npm run dev             (testa /familia novamente)"
-echo "  4. Se estiver OK: git add . && git commit -m \"feat: lista completa de membros do household\" && git push"
+echo "  1. npm run dev"
+echo "  2. Tente criar uma família novamente"
+echo "  3. Abra o Console do navegador (F12 → Console)"
+echo "  4. Vai aparecer um log [createHousehold] erro ao inserir X: {...}"
+echo "  5. Copie a mensagem e me envie"
 echo ""
