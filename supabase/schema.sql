@@ -63,7 +63,8 @@ create table if not exists public.categorias (
   ativa          boolean not null default true,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now(),
-  unique (household_id, nome, tipo)
+  -- Nome único por household, tipo E natureza. Permite "Outros" em naturezas diferentes.
+  unique (household_id, nome, tipo, natureza)
 );
 
 comment on table public.categorias is 'Categorias por household. tipo=receita|despesa; natureza=fixo|variavel|investimento|outro.';
@@ -143,7 +144,6 @@ create table if not exists public.transacoes (
   forma_pagamento   text,
   tipo_no_cartao    text check (tipo_no_cartao in ('avista','parcelado') or tipo_no_cartao is null),
 
-  -- Parcelamento
   parcelamento_id   uuid references public.parcelamentos(id) on delete cascade,
   parcela_atual     integer check (parcela_atual is null or parcela_atual > 0),
   parcela_total     integer check (parcela_total is null or parcela_total > 0),
@@ -166,7 +166,31 @@ create table if not exists public.transacoes (
 comment on table public.transacoes is 'Movimentações. Quando parcelada, cada parcela é uma linha com parcelamento_id.';
 
 -- ============================================================================
--- 9. LISTA DE MERCADO
+-- 9. HOUSEHOLD_CONVITES
+-- ============================================================================
+create table if not exists public.household_convites (
+  id                uuid primary key default gen_random_uuid(),
+  household_id      uuid not null references public.households(id) on delete cascade,
+  email_convidado   text not null check (length(trim(email_convidado)) > 0),
+  convidado_por     uuid not null references public.perfis(id) on delete restrict,
+  papel             text not null default 'membro'
+                    check (papel in ('admin','membro')),
+  status            text not null default 'pendente'
+                    check (status in ('pendente','aceito','cancelado')),
+  token             uuid not null default gen_random_uuid() unique,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+
+comment on table public.household_convites is 'Convites pendentes para um household.';
+
+-- Único: apenas 1 convite pendente por email por household
+create unique index if not exists uniq_convite_pendente
+  on public.household_convites (household_id, email_convidado)
+  where status = 'pendente';
+
+-- ============================================================================
+-- 10. LISTA DE MERCADO
 -- ============================================================================
 create table if not exists public.lista_mercado_itens (
   id             uuid primary key default gen_random_uuid(),
@@ -202,6 +226,10 @@ create index if not exists idx_responsaveis_household           on public.respon
 create index if not exists idx_parcelamentos_household          on public.parcelamentos (household_id);
 create index if not exists idx_lista_mercado_household_status   on public.lista_mercado_itens (household_id, status);
 
+create index if not exists idx_convites_household on public.household_convites (household_id, status);
+create index if not exists idx_convites_email     on public.household_convites (email_convidado, status);
+create index if not exists idx_convites_token     on public.household_convites (token);
+
 -- ============================================================================
 -- TRIGGER: updated_at automático
 -- ============================================================================
@@ -222,7 +250,8 @@ begin
   for t in
     select unnest(array[
       'perfis','households','household_membros','categorias',
-      'contas','responsaveis','parcelamentos','transacoes','lista_mercado_itens'
+      'contas','responsaveis','parcelamentos','transacoes',
+      'household_convites','lista_mercado_itens'
     ])
   loop
     execute format('drop trigger if exists trg_%I_updated_at on public.%I;', t, t);
@@ -281,6 +310,112 @@ as $$
 $$;
 
 -- ============================================================================
+-- RPC: aceitar_convite
+-- ============================================================================
+create or replace function public.aceitar_convite(p_token uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_convite        record;
+  v_user_id        uuid := auth.uid();
+  v_user_email     text;
+  v_membership_id  uuid;
+begin
+  if v_user_id is null then
+    raise exception 'Usuário não autenticado.';
+  end if;
+
+  select email into v_user_email
+  from auth.users
+  where id = v_user_id;
+
+  if v_user_email is null then
+    raise exception 'Não foi possível identificar o email do usuário.';
+  end if;
+
+  select * into v_convite
+  from public.household_convites
+  where token = p_token
+    and status = 'pendente'
+  for update;
+
+  if not found then
+    raise exception 'Convite não encontrado, já aceito ou cancelado.';
+  end if;
+
+  if lower(v_convite.email_convidado) <> lower(v_user_email) then
+    raise exception 'Este convite foi enviado para outro email.';
+  end if;
+
+  if exists (
+    select 1 from public.household_membros
+    where household_id = v_convite.household_id
+      and user_id = v_user_id
+  ) then
+    raise exception 'Você já é membro desta família.';
+  end if;
+
+  insert into public.household_membros (household_id, user_id, papel)
+  values (v_convite.household_id, v_user_id, v_convite.papel)
+  returning id into v_membership_id;
+
+  update public.household_convites
+  set status = 'aceito'
+  where id = v_convite.id;
+
+  return jsonb_build_object(
+    'household_id', v_convite.household_id,
+    'membership_id', v_membership_id,
+    'papel', v_convite.papel
+  );
+end;
+$$;
+
+-- ============================================================================
+-- RPC: cancelar_convite
+-- ============================================================================
+create or replace function public.cancelar_convite(p_convite_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id       uuid := auth.uid();
+  v_household_id  uuid;
+begin
+  if v_user_id is null then
+    raise exception 'Usuário não autenticado.';
+  end if;
+
+  select household_id into v_household_id
+  from public.household_convites
+  where id = p_convite_id
+    and status = 'pendente';
+
+  if v_household_id is null then
+    raise exception 'Convite não encontrado ou já finalizado.';
+  end if;
+
+  if not exists (
+    select 1 from public.household_membros
+    where household_id = v_household_id
+      and user_id = v_user_id
+      and papel in ('owner','admin')
+  ) then
+    raise exception 'Você não tem permissão para cancelar este convite.';
+  end if;
+
+  update public.household_convites
+  set status = 'cancelado'
+  where id = p_convite_id;
+end;
+$$;
+
+-- ============================================================================
 -- RLS
 -- ============================================================================
 alter table public.perfis              enable row level security;
@@ -291,6 +426,7 @@ alter table public.contas              enable row level security;
 alter table public.responsaveis        enable row level security;
 alter table public.parcelamentos       enable row level security;
 alter table public.transacoes          enable row level security;
+alter table public.household_convites  enable row level security;
 alter table public.lista_mercado_itens enable row level security;
 
 -- ---------- PERFIS ----------
@@ -430,6 +566,39 @@ create policy transacoes_all on public.transacoes
   using ( public.is_household_member(household_id) )
   with check ( public.is_household_member(household_id) );
 
+-- ---------- HOUSEHOLD_CONVITES ----------
+drop policy if exists convites_select on public.household_convites;
+create policy convites_select on public.household_convites
+  for select to authenticated
+  using (
+    public.is_household_member(household_id)
+    or email_convidado = (select email from auth.users where id = auth.uid())
+  );
+
+drop policy if exists convites_insert on public.household_convites;
+create policy convites_insert on public.household_convites
+  for insert to authenticated
+  with check (
+    convidado_por = (select auth.uid())
+    and exists (
+      select 1 from public.household_membros
+      where household_id = household_convites.household_id
+        and user_id = (select auth.uid())
+        and papel in ('owner','admin')
+    )
+  );
+
+drop policy if exists convites_update on public.household_convites;
+create policy convites_update on public.household_convites
+  for update to authenticated
+  using ( false )
+  with check ( false );
+
+drop policy if exists convites_delete on public.household_convites;
+create policy convites_delete on public.household_convites
+  for delete to authenticated
+  using ( false );
+
 -- ---------- LISTA DE MERCADO ----------
 drop policy if exists lista_mercado_itens_all on public.lista_mercado_itens;
 create policy lista_mercado_itens_all on public.lista_mercado_itens
@@ -447,6 +616,8 @@ grant select, insert, update, delete
   to authenticated;
 
 grant execute on function public.is_household_member(uuid) to authenticated;
+grant execute on function public.aceitar_convite(uuid) to authenticated;
+grant execute on function public.cancelar_convite(uuid) to authenticated;
 
 -- ============================================================================
 -- FIM

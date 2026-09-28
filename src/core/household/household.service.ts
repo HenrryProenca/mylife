@@ -44,6 +44,19 @@ export function setStoredActiveHouseholdId(householdId: string | null): void {
   window.localStorage.setItem(ACTIVE_HOUSEHOLD_STORAGE_KEY, householdId);
 }
 
+/**
+ * Extrai uma mensagem legível de um erro do Supabase.
+ * O Supabase não lança Error — lança um objeto { message, code, details, hint }.
+ */
+function extrairMensagemErro(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    const msg = (error as { message?: unknown }).message;
+    if (typeof msg === 'string') return msg;
+  }
+  return 'erro desconhecido';
+}
+
 export async function listarHouseholdsDoUsuario(
   userId: string,
 ): Promise<HouseholdWithMembership[]> {
@@ -169,47 +182,45 @@ export async function createHousehold(
     .single();
 
   if (membershipError) {
-    const { error: rollbackError } = await supabase
-      .from('households')
-      .delete()
-      .eq('id', household.id);
-
-    if (rollbackError) {
-      throw new Error(
-        'Não foi possível criar a família e a associação ao usuário. Tente novamente.',
-      );
-    }
-
+    await supabase.from('households').delete().eq('id', household.id);
     throw membershipError;
   }
 
+  // ---------- SEED DE CATEGORIAS ----------
   try {
     const seedCategorias = buildSeedCategorias(household.id);
 
     if (seedCategorias.length > 0) {
-      const { error: seedCategoriasError } = await supabase.from('categorias').insert(seedCategorias);
+      const { error: seedCategoriasError } = await supabase
+        .from('categorias')
+        .insert(seedCategorias);
 
-      if (seedCategoriasError) {
-        throw seedCategoriasError;
-      }
+      if (seedCategoriasError) throw seedCategoriasError;
     }
-
-    const seedResponsaveis = buildSeedResponsaveis(household.id);
-
-    if (seedResponsaveis.length > 0) {
-      const { error: seedResponsaveisError } = await supabase.from('responsaveis').insert(seedResponsaveis);
-
-      if (seedResponsaveisError) {
-        throw seedResponsaveisError;
-      }
-    }
-  } catch {
+  } catch (error) {
     await supabase.from('household_membros').delete().eq('household_id', household.id);
     await supabase.from('households').delete().eq('id', household.id);
 
-    throw new Error(
-      'Não foi possível criar as categorias e responsáveis padrão da família. A criação foi cancelada.',
-    );
+    throw new Error(`Falha ao criar categorias padrão: ${extrairMensagemErro(error)}`);
+  }
+
+  // ---------- SEED DE RESPONSÁVEIS ----------
+  try {
+    const seedResponsaveis = buildSeedResponsaveis(household.id);
+
+    if (seedResponsaveis.length > 0) {
+      const { error: seedResponsaveisError } = await supabase
+        .from('responsaveis')
+        .insert(seedResponsaveis);
+
+      if (seedResponsaveisError) throw seedResponsaveisError;
+    }
+  } catch (error) {
+    await supabase.from('categorias').delete().eq('household_id', household.id);
+    await supabase.from('household_membros').delete().eq('household_id', household.id);
+    await supabase.from('households').delete().eq('id', household.id);
+
+    throw new Error(`Falha ao criar responsáveis padrão: ${extrairMensagemErro(error)}`);
   }
 
   return {
