@@ -1,57 +1,71 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Tarefa: Atualizar .nvmrc e index.html
+# Tarefa: Migrar paleta do ProtectedRoute e HouseholdGuard
 # ============================================================
 # O que este script faz:
-# - .nvmrc: muda de "20" para "22" (Supabase 2.117.1 exige Node >= 22)
-# - index.html: atualiza favicon para PNG e theme-color para off-white
+# - Atualiza os tokens de paleta dos spinners e textos de loading
+#   nesses dois arquivos, que ainda usavam navy-* / content-*
 #
 # Arquivos criados: nenhum
 # Arquivos alterados:
-#   - .nvmrc (sobrescrito)
-#   - index.html (sobrescrito)
+#   - src/core/auth/ProtectedRoute.tsx (sobrescrito)
+#   - src/core/household/HouseholdGuard.tsx (sobrescrito)
 # ============================================================
 
 set -e
 
-# --- .nvmrc ---
-cat << 'EOF' > .nvmrc
-22
+# --- src/core/auth/ProtectedRoute.tsx ---
+cat << 'EOF' > src/core/auth/ProtectedRoute.tsx
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useAuth } from './useAuth';
+
+export function ProtectedRoute() {
+  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-canvas-100">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-[3px] border-canvas-300 border-t-brand-600 animate-spin" />
+          <div className="text-sm text-ink-500">Carregando…</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  return <Outlet />;
+}
 EOF
 
-# --- index.html ---
-cat << 'EOF' > index.html
-<!doctype html>
-<html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/mylife-symbol.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#F7F5F0" />
-    <title>MyLife</title>
+# --- src/core/household/HouseholdGuard.tsx ---
+cat << 'EOF' > src/core/household/HouseholdGuard.tsx
+import { Outlet } from 'react-router-dom';
+import { useAuth } from '@/core/auth/useAuth';
+import { useHousehold } from './useHousehold';
 
-    <!-- Preconnect -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+export function HouseholdGuard() {
+  const { loading: authLoading } = useAuth();
+  const { loading: householdLoading } = useHousehold();
 
-    <!-- Sora (display) -->
-    <link
-      href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&display=swap"
-      rel="stylesheet"
-    />
+  if (authLoading || householdLoading) {
+    return (
+      <div className="min-h-screen grid place-items-center bg-canvas-100">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 rounded-full border-[3px] border-canvas-300 border-t-brand-600 animate-spin" />
+          <div className="text-sm text-ink-500">Carregando sua família…</div>
+        </div>
+      </div>
+    );
+  }
 
-    <!-- Inter (sans) -->
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+  return <Outlet />;
+}
 EOF
 
 echo ""
@@ -59,5 +73,5 @@ echo "✅ Pronto."
 echo ""
 echo "Próximos passos:"
 echo "  1. git diff"
-echo "  2. Se estiver OK: git add . && git commit -m \"chore: atualiza .nvmrc para Node 22 e ajusta index.html\" && git push"
+echo "  2. Se estiver OK: git add . && git commit -m \"style: migra paleta de ProtectedRoute e HouseholdGuard\" && git push"
 echo ""
