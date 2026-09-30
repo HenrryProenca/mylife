@@ -1,52 +1,254 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Fix — Corrige aceitar convite + auto-login após cadastro
+# Frente 1 — Aceitar/Recusar convite com confirmação explícita
 # ============================================================
 # O que este script faz:
-# - AceitarConvitePage: corrige o loop infinito no useEffect
-#   (remove `estado` das deps, adiciona flag de controle)
-# - CadastroPage: após criar conta, faz login automático e
-#   redireciona para ?redirect= se existir
-# - LoginPage: sem mudança (já está correto)
+# - AceitarConvitePage: mostra dados da família + botões
+#   "Aceitar" e "Recusar" em vez de aceitar automaticamente
+# - convites.service: adiciona função recusarConvite (usa a
+#   RPC cancelar_convite que já existe)
+# - useConvites: expõe recusarConvite
 #
 # Arquivos criados: nenhum
 # Arquivos alterados:
 #   - src/core/household/pages/AceitarConvitePage.tsx (sobrescrito)
-#   - src/core/auth/pages/CadastroPage.tsx (sobrescrito)
+#   - src/core/household/convites.service.ts (sobrescrito)
+#   - src/core/household/hooks/useConvites.ts (sobrescrito)
 # ============================================================
 
 set -e
 
 mkdir -p src/core/household/pages
-mkdir -p src/core/auth/pages
+mkdir -p src/core/household/hooks
+
+# ---------- ALTERAR: core/household/convites.service.ts ----------
+cat << 'EOF' > src/core/household/convites.service.ts
+import { supabase } from '@/lib/supabase';
+import type {
+  AceitarConviteResultado,
+  Convite,
+  ConvitePapel,
+  CriarConviteInput,
+} from './convites.types';
+
+export async function listarConvitesDoHousehold(
+  householdId: string,
+): Promise<Convite[]> {
+  const { data, error } = await supabase
+    .from('household_convites')
+    .select('*')
+    .eq('household_id', householdId)
+    .eq('status', 'pendente')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []) as Convite[];
+}
+
+export async function criarConvite(
+  householdId: string,
+  userId: string,
+  input: CriarConviteInput,
+): Promise<Convite> {
+  const email = input.email_convidado.trim().toLowerCase();
+
+  if (!email || !email.includes('@')) {
+    throw new Error('Informe um email válido.');
+  }
+
+  const { data, error } = await supabase
+    .from('household_convites')
+    .insert({
+      household_id: householdId,
+      email_convidado: email,
+      convidado_por: userId,
+      papel: input.papel,
+      status: 'pendente',
+    })
+    .select('*')
+    .single();
+
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('Já existe um convite pendente para este email nesta família.');
+    }
+    throw error;
+  }
+
+  return data as Convite;
+}
+
+export async function cancelarConvite(conviteId: string): Promise<void> {
+  const { error } = await supabase.rpc('cancelar_convite', {
+    p_convite_id: conviteId,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Recusa um convite — mesma ação que cancelar, mas semanticamente diferente.
+ * O convidado pode recusar; o owner/admin pode cancelar. Ambos usam a mesma
+ * RPC que muda o status para 'cancelado'.
+ */
+export async function recusarConvite(conviteId: string): Promise<void> {
+  const { error } = await supabase.rpc('cancelar_convite', {
+    p_convite_id: conviteId,
+  });
+
+  if (error) throw error;
+}
+
+export async function buscarConvitePorToken(token: string): Promise<Convite | null> {
+  const { data, error } = await supabase
+    .from('household_convites')
+    .select('*')
+    .eq('token', token)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as Convite | null) ?? null;
+}
+
+/**
+ * Busca o nome de um household a partir do ID.
+ * Usado pela tela de aceitar convite para mostrar o nome da família.
+ * O RLS já garante que o usuário só vê households aos quais tem acesso,
+ * mas como o convidado ainda não é membro, ele não teria acesso — por isso
+ * usamos a service_role em contexto de função RPC seria ideal, mas aqui
+ * usamos uma query simples que o RLS permite pelo convite vinculado.
+ */
+export async function buscarNomeDoHousehold(householdId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('households')
+    .select('nome')
+    .eq('id', householdId)
+    .maybeSingle();
+
+  if (error) return null;
+  return data?.nome ?? null;
+}
+
+export async function aceitarConvite(token: string): Promise<AceitarConviteResultado> {
+  const { data, error } = await supabase.rpc('aceitar_convite', {
+    p_token: token,
+  });
+
+  if (error) throw error;
+  return data as AceitarConviteResultado;
+}
+
+export function montarLinkConvite(token: string): string {
+  const base = typeof window !== 'undefined' ? window.location.origin : '';
+  return `${base}/aceitar-convite?token=${token}`;
+}
+
+export const convitePapelLabels: Record<ConvitePapel, string> = {
+  admin: 'Administrador',
+  membro: 'Membro',
+};
+EOF
+
+# ---------- ALTERAR: core/household/hooks/useConvites.ts ----------
+cat << 'EOF' > src/core/household/hooks/useConvites.ts
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/core/auth/useAuth';
+import { useHousehold } from '@/core/household/useHousehold';
+import {
+  cancelarConvite as cancelarConviteService,
+  criarConvite as criarConviteService,
+  listarConvitesDoHousehold,
+} from '../convites.service';
+import type { CriarConviteInput } from '../convites.types';
+
+export const convitesQueryKey = ['convites'];
+
+export function useConvites() {
+  const { user } = useAuth();
+  const { activeHousehold } = useHousehold();
+  const queryClient = useQueryClient();
+  const householdId = activeHousehold?.id ?? null;
+
+  const query = useQuery({
+    queryKey: [...convitesQueryKey, householdId],
+    enabled: Boolean(householdId),
+    queryFn: () => listarConvitesDoHousehold(householdId as string),
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (input: CriarConviteInput) => {
+      if (!householdId) throw new Error('Você precisa selecionar uma família antes de convidar.');
+      if (!user) throw new Error('Você precisa estar autenticado.');
+      return criarConviteService(householdId, user.id, input);
+    },
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: convitesQueryKey }),
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: (conviteId: string) => cancelarConviteService(conviteId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: convitesQueryKey }),
+  });
+
+  return {
+    convites: query.data ?? [],
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    criarConvite: createMutation.mutateAsync,
+    cancelarConvite: cancelMutation.mutateAsync,
+    isCreating: createMutation.isPending,
+    isCancelling: cancelMutation.isPending,
+  };
+}
+EOF
 
 # ---------- ALTERAR: core/household/pages/AceitarConvitePage.tsx ----------
 cat << 'EOF' > src/core/household/pages/AceitarConvitePage.tsx
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, Loader2, Users, X, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/core/auth/useAuth';
-import { aceitarConvite } from '../convites.service';
 import { useHousehold } from '../useHousehold';
+import {
+  aceitarConvite,
+  buscarConvitePorToken,
+  buscarNomeDoHousehold,
+  convitePapelLabels,
+  recusarConvite,
+} from '../convites.service';
+import type { Convite } from '../convites.types';
 
-type Estado = 'verificando' | 'aceitando' | 'sucesso' | 'erro' | 'sem-token';
+type Estado =
+  | 'verificando'
+  | 'mostrando'
+  | 'aceitando'
+  | 'recusando'
+  | 'sucesso'
+  | 'recusado'
+  | 'erro'
+  | 'sem-token';
+
+interface DadosConvite {
+  convite: Convite;
+  nomeHousehold: string | null;
+}
 
 export default function AceitarConvitePage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { refreshHouseholds, setActiveHousehold } = useHousehold();
 
   const [estado, setEstado] = useState<Estado>(token ? 'verificando' : 'sem-token');
   const [mensagemErro, setMensagemErro] = useState<string>('');
+  const [dados, setDados] = useState<DadosConvite | null>(null);
 
-  // Flag de controle para garantir que a RPC é chamada apenas uma vez
-  const jaExecutou = useRef(false);
+  const jaBuscou = useRef(false);
 
-  // Redireciona para login se não estiver autenticado
+  // Redireciona para login se não autenticado
   useEffect(() => {
     if (authLoading) return;
     if (!token) return;
@@ -56,43 +258,103 @@ export default function AceitarConvitePage() {
     navigate(`/login?redirect=${redirect}`, { replace: true });
   }, [authLoading, isAuthenticated, token, navigate]);
 
-  // Aceita o convite quando o usuário está autenticado
+  // Busca o convite quando o usuário está autenticado
   useEffect(() => {
     if (authLoading) return;
     if (!token) return;
     if (!isAuthenticated) return;
-    if (jaExecutou.current) return;
+    if (jaBuscou.current) return;
 
-    jaExecutou.current = true;
+    jaBuscou.current = true;
 
     let cancelado = false;
 
-    async function executar() {
-      setEstado('aceitando');
+    async function buscar() {
       try {
-        const resultado = await aceitarConvite(token!);
+        const convite = await buscarConvitePorToken(token!);
         if (cancelado) return;
 
-        await refreshHouseholds();
-        setActiveHousehold(resultado.household_id);
+        if (!convite) {
+          setMensagemErro('Convite não encontrado.');
+          setEstado('erro');
+          return;
+        }
 
-        setEstado('sucesso');
-        toast.success('Convite aceito! Bem-vindo à família.');
-        setTimeout(() => navigate('/', { replace: true }), 1500);
+        if (convite.status !== 'pendente') {
+          const msg =
+            convite.status === 'aceito'
+              ? 'Este convite já foi aceito.'
+              : 'Este convite foi cancelado.';
+          setMensagemErro(msg);
+          setEstado('erro');
+          return;
+        }
+
+        // Verifica se o email do usuário logado bate com o do convite
+        const emailLogado = (user?.email ?? '').toLowerCase();
+        const emailConvidado = convite.email_convidado.toLowerCase();
+
+        if (emailLogado !== emailConvidado) {
+          setMensagemErro(
+            `Este convite foi enviado para ${convite.email_convidado}. Faça login com esse email para aceitar.`,
+          );
+          setEstado('erro');
+          return;
+        }
+
+        const nomeHousehold = await buscarNomeDoHousehold(convite.household_id);
+        if (cancelado) return;
+
+        setDados({ convite, nomeHousehold });
+        setEstado('mostrando');
       } catch (error) {
         if (cancelado) return;
-        const msg = error instanceof Error ? error.message : 'Não foi possível aceitar o convite.';
+        const msg = error instanceof Error ? error.message : 'Erro ao carregar o convite.';
         setMensagemErro(msg);
         setEstado('erro');
       }
     }
 
-    void executar();
+    void buscar();
 
     return () => {
       cancelado = true;
     };
-  }, [authLoading, isAuthenticated, token, refreshHouseholds, setActiveHousehold, navigate]);
+  }, [authLoading, isAuthenticated, token, user]);
+
+  async function handleAceitar() {
+    if (!dados) return;
+    setEstado('aceitando');
+
+    try {
+      const resultado = await aceitarConvite(dados.convite.token);
+      await refreshHouseholds();
+      setActiveHousehold(resultado.household_id);
+      setEstado('sucesso');
+      toast.success('Convite aceito! Bem-vindo à família.');
+      setTimeout(() => navigate('/', { replace: true }), 1500);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Não foi possível aceitar o convite.';
+      setMensagemErro(msg);
+      setEstado('erro');
+    }
+  }
+
+  async function handleRecusar() {
+    if (!dados) return;
+    setEstado('recusando');
+
+    try {
+      await recusarConvite(dados.convite.id);
+      setEstado('recusado');
+      toast.success('Convite recusado.');
+      setTimeout(() => navigate('/', { replace: true }), 1500);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Não foi possível recusar o convite.';
+      setMensagemErro(msg);
+      setEstado('erro');
+    }
+  }
 
   // -------------------- RENDER --------------------
 
@@ -101,9 +363,7 @@ export default function AceitarConvitePage() {
       <TelaCentral>
         <Icone tipo="erro" />
         <Titulo>Link inválido</Titulo>
-        <Texto>
-          Este link não contém um token de convite. Peça um novo link para quem te convidou.
-        </Texto>
+        <Texto>Este link não contém um token de convite.</Texto>
         <Link to="/" className="btn-primary mt-2">
           Ir para o início
         </Link>
@@ -121,9 +381,6 @@ export default function AceitarConvitePage() {
           <Link to="/" className="btn-ghost">
             Ir para o início
           </Link>
-          <Link to="/selecionar-familia" className="btn-primary">
-            Ver minhas famílias
-          </Link>
         </div>
       </TelaCentral>
     );
@@ -139,11 +396,97 @@ export default function AceitarConvitePage() {
     );
   }
 
+  if (estado === 'recusado') {
+    return (
+      <TelaCentral>
+        <Icone tipo="erro" />
+        <Titulo>Convite recusado</Titulo>
+        <Texto>Você não faz parte desta família. Redirecionando…</Texto>
+      </TelaCentral>
+    );
+  }
+
+  if (estado === 'aceitando') {
+    return (
+      <TelaCentral>
+        <Icone tipo="carregando" />
+        <Titulo>Aceitando convite…</Titulo>
+        <Texto>Aguarde um instante.</Texto>
+      </TelaCentral>
+    );
+  }
+
+  if (estado === 'recusando') {
+    return (
+      <TelaCentral>
+        <Icone tipo="carregando" />
+        <Titulo>Recusando convite…</Titulo>
+        <Texto>Aguarde um instante.</Texto>
+      </TelaCentral>
+    );
+  }
+
+  if (estado === 'verificando' || !dados) {
+    return (
+      <TelaCentral>
+        <Icone tipo="carregando" />
+        <Titulo>Verificando convite…</Titulo>
+        <Texto>Aguarde um instante.</Texto>
+      </TelaCentral>
+    );
+  }
+
+  // estado === 'mostrando'
   return (
     <TelaCentral>
-      <Icone tipo="carregando" />
-      <Titulo>{estado === 'aceitando' ? 'Aceitando convite…' : 'Verificando convite…'}</Titulo>
-      <Texto>Aguarde um instante.</Texto>
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+        <Users className="h-7 w-7" />
+      </div>
+      <Titulo>Convite para família</Titulo>
+      <Texto>
+        Você foi convidado para fazer parte da família
+        {dados.nomeHousehold ? (
+          <>
+            {' '}
+            <strong className="text-ink-900">{dados.nomeHousehold}</strong>
+          </>
+        ) : null}
+        .
+      </Texto>
+
+      <div className="w-full rounded-lg border border-canvas-300 bg-canvas-100 p-3 text-left text-sm text-ink-500">
+        <div className="flex items-center justify-between gap-3">
+          <span>Convite para</span>
+          <span className="truncate font-medium text-ink-900">
+            {dados.convite.email_convidado}
+          </span>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span>Papel</span>
+          <span className="font-medium text-ink-900">
+            {convitePapelLabels[dados.convite.papel]}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-3 flex w-full flex-col gap-2 sm:flex-row sm:justify-center">
+        <button
+          type="button"
+          onClick={() => void handleRecusar()}
+          className="btn-ghost flex items-center justify-center gap-2"
+        >
+          <X className="h-4 w-4" />
+          Recusar
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleAceitar()}
+          className="btn-primary flex items-center justify-center gap-2"
+        >
+          <Check className="h-4 w-4" />
+          Aceitar convite
+        </button>
+      </div>
     </TelaCentral>
   );
 }
@@ -191,171 +534,12 @@ function Texto({ children }: { children: React.ReactNode }) {
 }
 EOF
 
-# ---------- ALTERAR: core/auth/pages/CadastroPage.tsx ----------
-cat << 'EOF' > src/core/auth/pages/CadastroPage.tsx
-import { useState, useEffect, type FormEvent } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { toast } from 'sonner';
-import { UserPlus } from 'lucide-react';
-import { cadastrarUsuario, loginUsuario } from '../auth.service';
-import { useAuth } from '../useAuth';
-
-export default function CadastroPage() {
-  const [nome, setNome] = useState('');
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
-  const [carregando, setCarregando] = useState(false);
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { isAuthenticated, loading } = useAuth();
-
-  const redirectParam = searchParams.get('redirect');
-  const destinoFinal = redirectParam ? decodeURIComponent(redirectParam) : '/';
-
-  useEffect(() => {
-    if (!loading && isAuthenticated) {
-      navigate(destinoFinal, { replace: true });
-    }
-  }, [loading, isAuthenticated, destinoFinal, navigate]);
-
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (senha.length < 6) {
-      toast.error('A senha precisa ter no mínimo 6 caracteres.');
-      return;
-    }
-    setCarregando(true);
-
-    try {
-      // 1. Cria a conta
-      await cadastrarUsuario({ nome, email, senha });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao criar conta';
-      toast.error(traduzirErro(msg));
-      setCarregando(false);
-      return;
-    }
-
-    try {
-      // 2. Tenta fazer login automático
-      await loginUsuario({ email, senha });
-      toast.success('Conta criada! Bem-vindo ao MyLife.');
-      // Se o login automático funcionou, o AuthProvider detecta via onAuthStateChange
-      // e o useEffect acima redireciona para destinoFinal
-    } catch (err) {
-      // Se falhou o login automático (ex: email precisa ser confirmado),
-      // manda para login com o redirect preservado
-      const msg = err instanceof Error ? err.message : '';
-      if (/email not confirmed/i.test(msg)) {
-        toast.success('Conta criada! Confirme seu email antes de entrar.');
-      } else {
-        toast.success('Conta criada! Faça login para continuar.');
-      }
-
-      if (redirectParam) {
-        navigate(`/login?redirect=${encodeURIComponent(redirectParam)}`, { replace: true });
-      } else {
-        navigate('/login', { replace: true });
-      }
-    } finally {
-      setCarregando(false);
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-canvas-100 grid place-items-center px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600 text-white mb-4">
-            <UserPlus className="w-6 h-6" />
-          </div>
-          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Criar conta</h1>
-          <p className="text-sm text-ink-500 mt-1">
-            Comece a organizar sua vida financeira
-          </p>
-        </div>
-
-        <form onSubmit={onSubmit} className="card p-6 space-y-4">
-          <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
-              Nome
-            </label>
-            <input
-              type="text"
-              required
-              autoFocus
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              className="input-base"
-              placeholder="Seu nome"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
-              Email
-            </label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-base"
-              placeholder="voce@exemplo.com"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
-              Senha
-            </label>
-            <input
-              type="password"
-              required
-              minLength={6}
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              className="input-base"
-              placeholder="Mínimo 6 caracteres"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={carregando}
-            className="btn-primary w-full"
-          >
-            {carregando ? 'Criando…' : 'Criar conta'}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-ink-500 mt-6">
-          Já tem conta?{' '}
-          <Link
-            to={redirectParam ? `/login?redirect=${encodeURIComponent(redirectParam)}` : '/login'}
-            className="text-brand-600 hover:underline"
-          >
-            Entrar
-          </Link>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function traduzirErro(msg: string) {
-  if (/already registered|user already/i.test(msg)) return 'Este email já está cadastrado.';
-  if (/password should be at least/i.test(msg)) return 'A senha precisa ter no mínimo 6 caracteres.';
-  return msg;
-}
-EOF
-
 echo ""
 echo "✅ Pronto."
 echo ""
 echo "Próximos passos:"
-echo "  1. git status              (deve listar 2 modificados)"
+echo "  1. git status              (deve listar 3 modificados)"
 echo "  2. npm run typecheck       (confirma que não quebrou tipos)"
 echo "  3. npm run dev             (testa o fluxo completo)"
-echo "  4. Se estiver OK: git add . && git commit -m \"fix: corrige aceitar convite e adiciona auto-login no cadastro\" && git push"
+echo "  4. Se estiver OK: git add . && git commit -m \"feat: aceitar/recusar convite com confirmacao\" && git push"
 echo ""
