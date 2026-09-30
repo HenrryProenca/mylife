@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Bloco G1-e — Tela /aceitar-convite
+# Fix — Corrige aceitar convite + auto-login após cadastro
 # ============================================================
 # O que este script faz:
-# - Cria a tela que recebe o convidado
-# - Adiciona a rota pública /aceitar-convite no router
-# - Ajusta LoginPage para preservar ?redirect= após login
+# - AceitarConvitePage: corrige o loop infinito no useEffect
+#   (remove `estado` das deps, adiciona flag de controle)
+# - CadastroPage: após criar conta, faz login automático e
+#   redireciona para ?redirect= se existir
+# - LoginPage: sem mudança (já está correto)
 #
-# Arquivos criados:
-#   - src/core/household/pages/AceitarConvitePage.tsx
-#
+# Arquivos criados: nenhum
 # Arquivos alterados:
-#   - src/router.tsx (sobrescrito)
-#   - src/core/auth/pages/LoginPage.tsx (sobrescrito)
+#   - src/core/household/pages/AceitarConvitePage.tsx (sobrescrito)
+#   - src/core/auth/pages/CadastroPage.tsx (sobrescrito)
 # ============================================================
 
 set -e
@@ -21,9 +21,9 @@ set -e
 mkdir -p src/core/household/pages
 mkdir -p src/core/auth/pages
 
-# ---------- CRIAR: core/household/pages/AceitarConvitePage.tsx ----------
+# ---------- ALTERAR: core/household/pages/AceitarConvitePage.tsx ----------
 cat << 'EOF' > src/core/household/pages/AceitarConvitePage.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
@@ -40,17 +40,13 @@ export default function AceitarConvitePage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { refreshHouseholds, setActiveHousehold } = useHousehold();
 
-  const [estado, setEstado] = useState<Estado>('verificando');
+  const [estado, setEstado] = useState<Estado>(token ? 'verificando' : 'sem-token');
   const [mensagemErro, setMensagemErro] = useState<string>('');
 
-  // Se não tem token na URL, mostra erro imediato
-  useEffect(() => {
-    if (!token) {
-      setEstado('sem-token');
-    }
-  }, [token]);
+  // Flag de controle para garantir que a RPC é chamada apenas uma vez
+  const jaExecutou = useRef(false);
 
-  // Se o usuário não está logado, redireciona para login com o token preservado
+  // Redireciona para login se não estiver autenticado
   useEffect(() => {
     if (authLoading) return;
     if (!token) return;
@@ -60,12 +56,14 @@ export default function AceitarConvitePage() {
     navigate(`/login?redirect=${redirect}`, { replace: true });
   }, [authLoading, isAuthenticated, token, navigate]);
 
-  // Se está logado e tem token, aceita automaticamente
+  // Aceita o convite quando o usuário está autenticado
   useEffect(() => {
     if (authLoading) return;
     if (!token) return;
     if (!isAuthenticated) return;
-    if (estado !== 'verificando') return;
+    if (jaExecutou.current) return;
+
+    jaExecutou.current = true;
 
     let cancelado = false;
 
@@ -75,9 +73,7 @@ export default function AceitarConvitePage() {
         const resultado = await aceitarConvite(token!);
         if (cancelado) return;
 
-        // Atualiza a lista de households no provider
         await refreshHouseholds();
-        // Seleciona o household recém aceito
         setActiveHousehold(resultado.household_id);
 
         setEstado('sucesso');
@@ -96,7 +92,7 @@ export default function AceitarConvitePage() {
     return () => {
       cancelado = true;
     };
-  }, [authLoading, isAuthenticated, token, estado, refreshHouseholds, setActiveHousehold, navigate]);
+  }, [authLoading, isAuthenticated, token, refreshHouseholds, setActiveHousehold, navigate]);
 
   // -------------------- RENDER --------------------
 
@@ -195,102 +191,72 @@ function Texto({ children }: { children: React.ReactNode }) {
 }
 EOF
 
-# ---------- ALTERAR: src/router.tsx ----------
-cat << 'EOF' > src/router.tsx
-import { createBrowserRouter, Navigate } from 'react-router-dom';
-import AppShell from './app/AppShell';
-import HomePage from './app/HomePage';
-import { ProtectedRoute } from './core/auth/ProtectedRoute';
-import LoginPage from './core/auth/pages/LoginPage';
-import CadastroPage from './core/auth/pages/CadastroPage';
-import RecuperarSenhaPage from './core/auth/pages/RecuperarSenhaPage';
-import RedefinirSenhaPage from './core/auth/pages/RedefinirSenhaPage';
-import { HouseholdGuard } from './core/household/HouseholdGuard';
-import OnboardingPage from './core/household/pages/OnboardingPage';
-import SelecionarHouseholdPage from './core/household/pages/SelecionarHouseholdPage';
-import AceitarConvitePage from './core/household/pages/AceitarConvitePage';
-import PerfilPage from './core/usuarios/pages/PerfilPage';
-import DashboardPage from './modules/financeiro/pages/DashboardPage';
-import ListaMercadoPage from './modules/lista-mercado/pages/ListaMercadoPage';
-
-export const router = createBrowserRouter([
-  // ---------- Rotas públicas ----------
-  { path: '/login', element: <LoginPage /> },
-  { path: '/cadastro', element: <CadastroPage /> },
-  { path: '/recuperar-senha', element: <RecuperarSenhaPage /> },
-  { path: '/redefinir-senha', element: <RedefinirSenhaPage /> },
-  { path: '/aceitar-convite', element: <AceitarConvitePage /> },
-
-  // ---------- Rotas protegidas ----------
-  {
-    path: '/',
-    element: <ProtectedRoute />,
-    children: [
-      { path: 'onboarding', element: <OnboardingPage /> },
-      { path: 'selecionar-familia', element: <SelecionarHouseholdPage /> },
-      {
-        path: '',
-        element: <HouseholdGuard />,
-        children: [
-          {
-            path: '',
-            element: <AppShell />,
-            children: [
-              { index: true, element: <HomePage /> },
-              { path: 'financeiro', element: <DashboardPage /> },
-              { path: 'lista-mercado', element: <ListaMercadoPage /> },
-              { path: 'perfil', element: <PerfilPage /> },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-
-  { path: '*', element: <Navigate to="/" replace /> },
-]);
-EOF
-
-# ---------- ALTERAR: src/core/auth/pages/LoginPage.tsx ----------
-cat << 'EOF' > src/core/auth/pages/LoginPage.tsx
+# ---------- ALTERAR: core/auth/pages/CadastroPage.tsx ----------
+cat << 'EOF' > src/core/auth/pages/CadastroPage.tsx
 import { useState, useEffect, type FormEvent } from 'react';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { LogIn } from 'lucide-react';
-import { loginUsuario } from '../auth.service';
+import { UserPlus } from 'lucide-react';
+import { cadastrarUsuario, loginUsuario } from '../auth.service';
 import { useAuth } from '../useAuth';
 
-export default function LoginPage() {
+export default function CadastroPage() {
+  const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [carregando, setCarregando] = useState(false);
   const navigate = useNavigate();
-  const location = useLocation() as { state?: { from?: { pathname: string } } };
   const [searchParams] = useSearchParams();
   const { isAuthenticated, loading } = useAuth();
 
-  // Destino após login: prioridade para ?redirect=, depois location.state.from, depois /
   const redirectParam = searchParams.get('redirect');
-  const destino = redirectParam
-    ? decodeURIComponent(redirectParam)
-    : location.state?.from?.pathname ?? '/';
+  const destinoFinal = redirectParam ? decodeURIComponent(redirectParam) : '/';
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      navigate(destino, { replace: true });
+      navigate(destinoFinal, { replace: true });
     }
-  }, [loading, isAuthenticated, destino, navigate]);
+  }, [loading, isAuthenticated, destinoFinal, navigate]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (senha.length < 6) {
+      toast.error('A senha precisa ter no mínimo 6 caracteres.');
+      return;
+    }
     setCarregando(true);
+
     try {
-      await loginUsuario({ email, senha });
-      toast.success('Bem-vindo de volta!');
-      navigate(destino, { replace: true });
+      // 1. Cria a conta
+      await cadastrarUsuario({ nome, email, senha });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao entrar';
+      const msg = err instanceof Error ? err.message : 'Erro ao criar conta';
       toast.error(traduzirErro(msg));
+      setCarregando(false);
+      return;
+    }
+
+    try {
+      // 2. Tenta fazer login automático
+      await loginUsuario({ email, senha });
+      toast.success('Conta criada! Bem-vindo ao MyLife.');
+      // Se o login automático funcionou, o AuthProvider detecta via onAuthStateChange
+      // e o useEffect acima redireciona para destinoFinal
+    } catch (err) {
+      // Se falhou o login automático (ex: email precisa ser confirmado),
+      // manda para login com o redirect preservado
+      const msg = err instanceof Error ? err.message : '';
+      if (/email not confirmed/i.test(msg)) {
+        toast.success('Conta criada! Confirme seu email antes de entrar.');
+      } else {
+        toast.success('Conta criada! Faça login para continuar.');
+      }
+
+      if (redirectParam) {
+        navigate(`/login?redirect=${encodeURIComponent(redirectParam)}`, { replace: true });
+      } else {
+        navigate('/login', { replace: true });
+      }
     } finally {
       setCarregando(false);
     }
@@ -301,19 +267,30 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand-600 text-white mb-4">
-            <LogIn className="w-6 h-6" />
+            <UserPlus className="w-6 h-6" />
           </div>
-          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Entrar no MyLife</h1>
+          <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">Criar conta</h1>
           <p className="text-sm text-ink-500 mt-1">
-            Acesse sua conta para continuar
+            Comece a organizar sua vida financeira
           </p>
         </div>
 
-        <form
-          onSubmit={onSubmit}
-          className="card p-6 space-y-4"
-          autoComplete="on"
-        >
+        <form onSubmit={onSubmit} className="card p-6 space-y-4">
+          <div>
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
+              Nome
+            </label>
+            <input
+              type="text"
+              required
+              autoFocus
+              value={nome}
+              onChange={(e) => setNome(e.target.value)}
+              className="input-base"
+              placeholder="Seu nome"
+            />
+          </div>
+
           <div>
             <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
               Email
@@ -321,7 +298,6 @@ export default function LoginPage() {
             <input
               type="email"
               required
-              autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="input-base"
@@ -330,24 +306,17 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500">
-                Senha
-              </label>
-              <Link
-                to="/recuperar-senha"
-                className="text-xs text-brand-600 hover:underline"
-              >
-                Esqueci minha senha
-              </Link>
-            </div>
+            <label className="block text-xs uppercase tracking-wider font-semibold text-ink-500 mb-2">
+              Senha
+            </label>
             <input
               type="password"
               required
+              minLength={6}
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
               className="input-base"
-              placeholder="••••••••"
+              placeholder="Mínimo 6 caracteres"
             />
           </div>
 
@@ -356,17 +325,17 @@ export default function LoginPage() {
             disabled={carregando}
             className="btn-primary w-full"
           >
-            {carregando ? 'Entrando…' : 'Entrar'}
+            {carregando ? 'Criando…' : 'Criar conta'}
           </button>
         </form>
 
         <p className="text-center text-sm text-ink-500 mt-6">
-          Não tem conta?{' '}
+          Já tem conta?{' '}
           <Link
-            to={redirectParam ? `/cadastro?redirect=${encodeURIComponent(redirectParam)}` : '/cadastro'}
+            to={redirectParam ? `/login?redirect=${encodeURIComponent(redirectParam)}` : '/login'}
             className="text-brand-600 hover:underline"
           >
-            Criar conta
+            Entrar
           </Link>
         </p>
       </div>
@@ -375,8 +344,8 @@ export default function LoginPage() {
 }
 
 function traduzirErro(msg: string) {
-  if (/invalid login credentials/i.test(msg)) return 'Email ou senha incorretos.';
-  if (/email not confirmed/i.test(msg)) return 'Confirme seu email antes de entrar.';
+  if (/already registered|user already/i.test(msg)) return 'Este email já está cadastrado.';
+  if (/password should be at least/i.test(msg)) return 'A senha precisa ter no mínimo 6 caracteres.';
   return msg;
 }
 EOF
@@ -385,8 +354,8 @@ echo ""
 echo "✅ Pronto."
 echo ""
 echo "Próximos passos:"
-echo "  1. git status              (deve listar 1 novo + 2 modificados)"
+echo "  1. git status              (deve listar 2 modificados)"
 echo "  2. npm run typecheck       (confirma que não quebrou tipos)"
 echo "  3. npm run dev             (testa o fluxo completo)"
-echo "  4. Se estiver OK: git add . && git commit -m \"feat: tela de aceitar convite\" && git push"
+echo "  4. Se estiver OK: git add . && git commit -m \"fix: corrige aceitar convite e adiciona auto-login no cadastro\" && git push"
 echo ""
