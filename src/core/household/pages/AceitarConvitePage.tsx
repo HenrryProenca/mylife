@@ -1,31 +1,50 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, Loader2, Users, X, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/core/auth/useAuth';
-import { aceitarConvite } from '../convites.service';
 import { useHousehold } from '../useHousehold';
+import {
+  aceitarConvite,
+  buscarConvitePorToken,
+  buscarNomeDoHousehold,
+  convitePapelLabels,
+  recusarConvite,
+} from '../convites.service';
+import type { Convite } from '../convites.types';
 
-type Estado = 'verificando' | 'aceitando' | 'sucesso' | 'erro' | 'sem-token';
+type Estado =
+  | 'verificando'
+  | 'mostrando'
+  | 'aceitando'
+  | 'recusando'
+  | 'sucesso'
+  | 'recusado'
+  | 'erro'
+  | 'sem-token';
+
+interface DadosConvite {
+  convite: Convite;
+  nomeHousehold: string | null;
+}
 
 export default function AceitarConvitePage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
   const navigate = useNavigate();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
   const { refreshHouseholds, setActiveHousehold } = useHousehold();
 
-  const [estado, setEstado] = useState<Estado>('verificando');
+  const [estado, setEstado] = useState<Estado>(token ? 'verificando' : 'sem-token');
   const [mensagemErro, setMensagemErro] = useState<string>('');
+  const [dados, setDados] = useState<DadosConvite | null>(null);
 
-  // Se não tem token na URL, mostra erro imediato
-  useEffect(() => {
-    if (!token) {
-      setEstado('sem-token');
-    }
-  }, [token]);
+  const jaBuscou = useRef(false);
 
-  // Se o usuário não está logado, redireciona para login com o token preservado
+  // Primitivos estáveis para usar em dependências (evitam loops)
+  const emailLogado = (user?.email ?? '').toLowerCase();
+
+  // ---------- Redireciona para login se não autenticado ----------
   useEffect(() => {
     if (authLoading) return;
     if (!token) return;
@@ -35,43 +54,95 @@ export default function AceitarConvitePage() {
     navigate(`/login?redirect=${redirect}`, { replace: true });
   }, [authLoading, isAuthenticated, token, navigate]);
 
-  // Se está logado e tem token, aceita automaticamente
+  // ---------- Busca o convite quando o usuário está autenticado ----------
+  // Roda UMA vez por token. Usa `jaBuscou.current` para garantir.
+  // NÃO usa flag `cancelado` — assim o setState nunca é engolido.
   useEffect(() => {
     if (authLoading) return;
     if (!token) return;
     if (!isAuthenticated) return;
-    if (estado !== 'verificando') return;
+    if (!emailLogado) return;
+    if (jaBuscou.current) return;
 
-    let cancelado = false;
+    jaBuscou.current = true;
 
-    async function executar() {
-      setEstado('aceitando');
+    async function buscar() {
       try {
-        const resultado = await aceitarConvite(token!);
-        if (cancelado) return;
+        const convite = await buscarConvitePorToken(token as string);
 
-        // Atualiza a lista de households no provider
-        await refreshHouseholds();
-        // Seleciona o household recém aceito
-        setActiveHousehold(resultado.household_id);
+        if (!convite) {
+          setMensagemErro('Convite não encontrado.');
+          setEstado('erro');
+          return;
+        }
 
-        setEstado('sucesso');
-        toast.success('Convite aceito! Bem-vindo à família.');
-        setTimeout(() => navigate('/', { replace: true }), 1500);
+        if (convite.status !== 'pendente') {
+          const msg =
+            convite.status === 'aceito'
+              ? 'Este convite já foi aceito.'
+              : 'Este convite foi cancelado.';
+          setMensagemErro(msg);
+          setEstado('erro');
+          return;
+        }
+
+        const emailConvidado = convite.email_convidado.toLowerCase();
+
+        if (emailLogado !== emailConvidado) {
+          setMensagemErro(
+            `Este convite foi enviado para ${convite.email_convidado}. Faça login com esse email para aceitar.`,
+          );
+          setEstado('erro');
+          return;
+        }
+
+        const nomeHousehold = await buscarNomeDoHousehold(convite.household_id);
+
+        setDados({ convite, nomeHousehold });
+        setEstado('mostrando');
       } catch (error) {
-        if (cancelado) return;
-        const msg = error instanceof Error ? error.message : 'Não foi possível aceitar o convite.';
+        const msg = error instanceof Error ? error.message : 'Erro ao carregar o convite.';
         setMensagemErro(msg);
         setEstado('erro');
       }
     }
 
-    void executar();
+    void buscar();
+  }, [authLoading, isAuthenticated, token, emailLogado]);
 
-    return () => {
-      cancelado = true;
-    };
-  }, [authLoading, isAuthenticated, token, estado, refreshHouseholds, setActiveHousehold, navigate]);
+  async function handleAceitar() {
+    if (!dados) return;
+    setEstado('aceitando');
+
+    try {
+      const resultado = await aceitarConvite(dados.convite.token);
+      await refreshHouseholds();
+      setActiveHousehold(resultado.household_id);
+      setEstado('sucesso');
+      toast.success('Convite aceito! Bem-vindo à família.');
+      setTimeout(() => navigate('/', { replace: true }), 1500);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Não foi possível aceitar o convite.';
+      setMensagemErro(msg);
+      setEstado('erro');
+    }
+  }
+
+  async function handleRecusar() {
+    if (!dados) return;
+    setEstado('recusando');
+
+    try {
+      await recusarConvite(dados.convite.id);
+      setEstado('recusado');
+      toast.success('Convite recusado.');
+      setTimeout(() => navigate('/', { replace: true }), 1500);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Não foi possível recusar o convite.';
+      setMensagemErro(msg);
+      setEstado('erro');
+    }
+  }
 
   // -------------------- RENDER --------------------
 
@@ -80,9 +151,7 @@ export default function AceitarConvitePage() {
       <TelaCentral>
         <Icone tipo="erro" />
         <Titulo>Link inválido</Titulo>
-        <Texto>
-          Este link não contém um token de convite. Peça um novo link para quem te convidou.
-        </Texto>
+        <Texto>Este link não contém um token de convite.</Texto>
         <Link to="/" className="btn-primary mt-2">
           Ir para o início
         </Link>
@@ -100,9 +169,6 @@ export default function AceitarConvitePage() {
           <Link to="/" className="btn-ghost">
             Ir para o início
           </Link>
-          <Link to="/selecionar-familia" className="btn-primary">
-            Ver minhas famílias
-          </Link>
         </div>
       </TelaCentral>
     );
@@ -118,11 +184,96 @@ export default function AceitarConvitePage() {
     );
   }
 
+  if (estado === 'recusado') {
+    return (
+      <TelaCentral>
+        <Icone tipo="erro" />
+        <Titulo>Convite recusado</Titulo>
+        <Texto>Você não faz parte desta família. Redirecionando…</Texto>
+      </TelaCentral>
+    );
+  }
+
+  if (estado === 'aceitando') {
+    return (
+      <TelaCentral>
+        <Icone tipo="carregando" />
+        <Titulo>Aceitando convite…</Titulo>
+        <Texto>Aguarde um instante.</Texto>
+      </TelaCentral>
+    );
+  }
+
+  if (estado === 'recusando') {
+    return (
+      <TelaCentral>
+        <Icone tipo="carregando" />
+        <Titulo>Recusando convite…</Titulo>
+        <Texto>Aguarde um instante.</Texto>
+      </TelaCentral>
+    );
+  }
+
+  if (estado === 'verificando' || !dados) {
+    return (
+      <TelaCentral>
+        <Icone tipo="carregando" />
+        <Titulo>Verificando convite…</Titulo>
+        <Texto>Aguarde um instante.</Texto>
+      </TelaCentral>
+    );
+  }
+
   return (
     <TelaCentral>
-      <Icone tipo="carregando" />
-      <Titulo>{estado === 'aceitando' ? 'Aceitando convite…' : 'Verificando convite…'}</Titulo>
-      <Texto>Aguarde um instante.</Texto>
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+        <Users className="h-7 w-7" />
+      </div>
+      <Titulo>Convite para família</Titulo>
+      <Texto>
+        Você foi convidado para fazer parte da família
+        {dados.nomeHousehold ? (
+          <>
+            {' '}
+            <strong className="text-ink-900">{dados.nomeHousehold}</strong>
+          </>
+        ) : null}
+        .
+      </Texto>
+
+      <div className="w-full rounded-lg border border-canvas-300 bg-canvas-100 p-3 text-left text-sm text-ink-500">
+        <div className="flex items-center justify-between gap-3">
+          <span>Convite para</span>
+          <span className="truncate font-medium text-ink-900">
+            {dados.convite.email_convidado}
+          </span>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span>Papel</span>
+          <span className="font-medium text-ink-900">
+            {convitePapelLabels[dados.convite.papel]}
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-3 flex w-full flex-col gap-2 sm:flex-row sm:justify-center">
+        <button
+          type="button"
+          onClick={() => void handleRecusar()}
+          className="btn-ghost flex items-center justify-center gap-2"
+        >
+          <X className="h-4 w-4" />
+          Recusar
+        </button>
+        <button
+          type="button"
+          onClick={() => void handleAceitar()}
+          className="btn-primary flex items-center justify-center gap-2"
+        >
+          <Check className="h-4 w-4" />
+          Aceitar convite
+        </button>
+      </div>
     </TelaCentral>
   );
 }

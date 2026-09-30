@@ -1,8 +1,8 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { UserPlus } from 'lucide-react';
-import { cadastrarUsuario } from '../auth.service';
+import { cadastrarUsuario, loginUsuario } from '../auth.service';
 import { useAuth } from '../useAuth';
 
 export default function CadastroPage() {
@@ -11,13 +11,17 @@ export default function CadastroPage() {
   const [senha, setSenha] = useState('');
   const [carregando, setCarregando] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { isAuthenticated, loading } = useAuth();
+
+  const redirectParam = searchParams.get('redirect');
+  const destinoFinal = redirectParam ? decodeURIComponent(redirectParam) : '/';
 
   useEffect(() => {
     if (!loading && isAuthenticated) {
-      navigate('/', { replace: true });
+      navigate(destinoFinal, { replace: true });
     }
-  }, [loading, isAuthenticated, navigate]);
+  }, [loading, isAuthenticated, destinoFinal, navigate]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -26,13 +30,38 @@ export default function CadastroPage() {
       return;
     }
     setCarregando(true);
+
     try {
+      // 1. Cria a conta
       await cadastrarUsuario({ nome, email, senha });
-      toast.success('Conta criada! Faça login para continuar.');
-      navigate('/login', { replace: true });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao criar conta';
       toast.error(traduzirErro(msg));
+      setCarregando(false);
+      return;
+    }
+
+    try {
+      // 2. Tenta fazer login automático
+      await loginUsuario({ email, senha });
+      toast.success('Conta criada! Bem-vindo ao MyLife.');
+      // Se o login automático funcionou, o AuthProvider detecta via onAuthStateChange
+      // e o useEffect acima redireciona para destinoFinal
+    } catch (err) {
+      // Se falhou o login automático (ex: email precisa ser confirmado),
+      // manda para login com o redirect preservado
+      const msg = err instanceof Error ? err.message : '';
+      if (/email not confirmed/i.test(msg)) {
+        toast.success('Conta criada! Confirme seu email antes de entrar.');
+      } else {
+        toast.success('Conta criada! Faça login para continuar.');
+      }
+
+      if (redirectParam) {
+        navigate(`/login?redirect=${encodeURIComponent(redirectParam)}`, { replace: true });
+      } else {
+        navigate('/login', { replace: true });
+      }
     } finally {
       setCarregando(false);
     }
@@ -107,7 +136,10 @@ export default function CadastroPage() {
 
         <p className="text-center text-sm text-ink-500 mt-6">
           Já tem conta?{' '}
-          <Link to="/login" className="text-brand-600 hover:underline">
+          <Link
+            to={redirectParam ? `/login?redirect=${encodeURIComponent(redirectParam)}` : '/login'}
+            className="text-brand-600 hover:underline"
+          >
             Entrar
           </Link>
         </p>

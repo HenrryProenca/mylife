@@ -61,6 +61,19 @@ export async function cancelarConvite(conviteId: string): Promise<void> {
   if (error) throw error;
 }
 
+/**
+ * Recusa um convite — mesma ação que cancelar, mas semanticamente diferente.
+ * O convidado pode recusar; o owner/admin pode cancelar. Ambos usam a mesma
+ * RPC que muda o status para 'cancelado'.
+ */
+export async function recusarConvite(conviteId: string): Promise<void> {
+  const { error } = await supabase.rpc('cancelar_convite', {
+    p_convite_id: conviteId,
+  });
+
+  if (error) throw error;
+}
+
 export async function buscarConvitePorToken(token: string): Promise<Convite | null> {
   const { data, error } = await supabase
     .from('household_convites')
@@ -70,6 +83,25 @@ export async function buscarConvitePorToken(token: string): Promise<Convite | nu
 
   if (error) throw error;
   return (data as Convite | null) ?? null;
+}
+
+/**
+ * Busca o nome de um household a partir do ID.
+ * Usado pela tela de aceitar convite para mostrar o nome da família.
+ * O RLS já garante que o usuário só vê households aos quais tem acesso,
+ * mas como o convidado ainda não é membro, ele não teria acesso — por isso
+ * usamos a service_role em contexto de função RPC seria ideal, mas aqui
+ * usamos uma query simples que o RLS permite pelo convite vinculado.
+ */
+export async function buscarNomeDoHousehold(householdId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('households')
+    .select('nome')
+    .eq('id', householdId)
+    .maybeSingle();
+
+  if (error) return null;
+  return data?.nome ?? null;
 }
 
 export async function aceitarConvite(token: string): Promise<AceitarConviteResultado> {
