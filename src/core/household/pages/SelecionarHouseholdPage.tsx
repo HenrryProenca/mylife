@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronRight, Home, Minus, Trash2, User, Users, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Home, Trash2, User, Users, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -46,12 +46,6 @@ export default function SelecionarHouseholdPage() {
     setGerenciandoId((atual) => (atual === householdId ? null : householdId));
   }
 
-  function handleClearSelection() {
-    setActiveHousehold(null);
-    toast.success('Nenhum espaço selecionado.');
-    navigate('/', { replace: true });
-  }
-
   function solicitarExclusao(householdId: string, householdName: string) {
     setFamiliaParaExcluir({ id: householdId, nome: householdName });
   }
@@ -62,9 +56,9 @@ export default function SelecionarHouseholdPage() {
     try {
       await deleteHousehold(familiaParaExcluir.id);
       setFamiliaParaExcluir(null);
-      toast.success('Espaço excluído.');
+      toast.success('Família excluída.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao excluir o espaço.';
+      const message = error instanceof Error ? error.message : 'Erro ao excluir a família.';
       toast.error(message);
     }
   }
@@ -91,37 +85,6 @@ export default function SelecionarHouseholdPage() {
           </div>
 
           <div className="space-y-3">
-            <button
-              type="button"
-              onClick={handleClearSelection}
-              className={[
-                'w-full text-left rounded-xl border px-4 py-4 transition',
-                activeHouseholdId === null || activeHouseholdId === '__sem_familia__'
-                  ? 'border-brand-500 bg-brand-50'
-                  : 'border-canvas-300 bg-white hover:border-canvas-400',
-              ].join(' ')}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-canvas-200 border border-canvas-300">
-                    <Minus className="h-4 w-4 text-ink-500" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-semibold text-ink-900">Nenhum espaço</div>
-                    <div className="text-xs text-ink-500">
-                      Não usar nenhum espaço agora
-                    </div>
-                  </div>
-                </div>
-                {activeHouseholdId === null || activeHouseholdId === '__sem_familia__' ? (
-                  <span className="inline-flex items-center gap-2 rounded-full border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
-                    <Check className="h-3.5 w-3.5" />
-                    Ativo
-                  </span>
-                ) : null}
-              </div>
-            </button>
-
             {households.map((household) => {
               const selected = household.id === activeHouseholdId;
               const gerenciando = gerenciandoId === household.id;
@@ -145,7 +108,7 @@ export default function SelecionarHouseholdPage() {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className={`flex h-10 w-10 items-center justify-center rounded-lg border ${pessoal ? 'bg-canvas-200 border-canvas-300' : 'bg-canvas-200 border-canvas-300'}`}>
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-canvas-200 border border-canvas-300">
                             {pessoal ? (
                               <User className="h-4 w-4 text-ink-500" />
                             ) : (
@@ -203,7 +166,7 @@ export default function SelecionarHouseholdPage() {
                       <button
                         type="button"
                         aria-label={`Excluir ${household.nome}`}
-                        title="Excluir"
+                        title="Excluir família"
                         disabled={deleting}
                         onClick={() => solicitarExclusao(household.id, household.nome)}
                         className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-500 transition hover:bg-state-error/10 hover:text-state-error disabled:cursor-not-allowed disabled:opacity-50"
@@ -254,7 +217,7 @@ export default function SelecionarHouseholdPage() {
                   id="confirmar-exclusao-titulo"
                   className="mt-1 font-display text-h2 font-semibold text-ink-900"
                 >
-                  Excluir espaço?
+                  Excluir família?
                 </h2>
               </div>
               <button
@@ -268,7 +231,7 @@ export default function SelecionarHouseholdPage() {
             </div>
 
             <p className="mt-4 text-sm leading-6 text-ink-500">
-              Você está prestes a excluir o espaço{' '}
+              Você está prestes a excluir a família{' '}
               <strong className="font-semibold text-ink-900">
                 {familiaParaExcluir.nome}
               </strong>
@@ -290,7 +253,7 @@ export default function SelecionarHouseholdPage() {
                 className="inline-flex items-center gap-2 rounded-lg bg-state-error px-4 py-2.5 font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Trash2 className="h-4 w-4" />
-                {deleting ? 'Excluindo…' : 'Excluir espaço'}
+                {deleting ? 'Excluindo…' : 'Excluir família'}
               </button>
             </div>
           </div>

@@ -12,7 +12,6 @@ import {
   deleteHousehold as deleteHouseholdService,
   getStoredActiveHouseholdId,
   listarHouseholdsDoUsuario,
-  NO_ACTIVE_HOUSEHOLD_ID,
   setStoredActiveHouseholdId,
 } from './household.service';
 import type {
@@ -39,11 +38,13 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
   const aplicarHouseholds = useCallback((householdList: HouseholdWithMembership[]) => {
     setHouseholds(householdList);
 
+    // Sempre escolhe um household ativo:
+    // 1. Se o salvo ainda existe na lista, mantém.
+    // 2. Senão, usa o primeiro da lista.
+    // 3. Só fica null se a lista estiver vazia (não deveria acontecer com o pessoal).
     const storedActiveId = getStoredActiveHouseholdId();
     const nextActiveId =
-      storedActiveId === NO_ACTIVE_HOUSEHOLD_ID
-        ? NO_ACTIVE_HOUSEHOLD_ID
-        : storedActiveId && householdList.some((household) => household.id === storedActiveId)
+      storedActiveId && householdList.some((household) => household.id === storedActiveId)
         ? storedActiveId
         : householdList[0]?.id ?? null;
 
