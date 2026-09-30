@@ -1,9 +1,13 @@
-import { Check, ChevronDown, ChevronRight, Home, Minus, Trash2, Users, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Home, Minus, Trash2, User, Users, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useHousehold } from '@/core/household/useHousehold';
 import { GerenciarFamiliaPanel } from '../components/GerenciarFamiliaPanel';
+
+function ehPessoal(nome: string): boolean {
+  return /\(pessoal\)$/i.test(nome);
+}
 
 export default function SelecionarHouseholdPage() {
   const navigate = useNavigate();
@@ -26,7 +30,7 @@ export default function SelecionarHouseholdPage() {
       <div className="min-h-screen bg-canvas-100 grid place-items-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-10 h-10 rounded-full border-[3px] border-canvas-300 border-t-brand-600 animate-spin" />
-          <div className="text-sm text-ink-500">Carregando famílias…</div>
+          <div className="text-sm text-ink-500">Carregando espaços…</div>
         </div>
       </div>
     );
@@ -34,7 +38,7 @@ export default function SelecionarHouseholdPage() {
 
   function handleSelect(householdId: string) {
     setActiveHousehold(householdId);
-    toast.success('Família selecionada.');
+    toast.success('Espaço selecionado.');
     navigate('/', { replace: true });
   }
 
@@ -44,7 +48,7 @@ export default function SelecionarHouseholdPage() {
 
   function handleClearSelection() {
     setActiveHousehold(null);
-    toast.success('Nenhuma família selecionada.');
+    toast.success('Nenhum espaço selecionado.');
     navigate('/', { replace: true });
   }
 
@@ -58,9 +62,9 @@ export default function SelecionarHouseholdPage() {
     try {
       await deleteHousehold(familiaParaExcluir.id);
       setFamiliaParaExcluir(null);
-      toast.success('Família excluída.');
+      toast.success('Espaço excluído.');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao excluir a família.';
+      const message = error instanceof Error ? error.message : 'Erro ao excluir o espaço.';
       toast.error(message);
     }
   }
@@ -75,11 +79,14 @@ export default function SelecionarHouseholdPage() {
             </div>
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-ink-500">
-                Família
+                Espaços
               </p>
               <h1 className="font-display text-h1 font-semibold tracking-tight text-ink-900">
-                Selecionar família
+                Selecionar espaço
               </h1>
+              <p className="text-xs text-ink-500 mt-1">
+                Escolha em qual espaço você quer lançar e visualizar dados
+              </p>
             </div>
           </div>
 
@@ -100,16 +107,16 @@ export default function SelecionarHouseholdPage() {
                     <Minus className="h-4 w-4 text-ink-500" />
                   </div>
                   <div className="min-w-0">
-                    <div className="font-semibold text-ink-900">Sem família</div>
+                    <div className="font-semibold text-ink-900">Nenhum espaço</div>
                     <div className="text-xs text-ink-500">
-                      Usar o app sem selecionar uma família
+                      Não usar nenhum espaço agora
                     </div>
                   </div>
                 </div>
                 {activeHouseholdId === null || activeHouseholdId === '__sem_familia__' ? (
                   <span className="inline-flex items-center gap-2 rounded-full border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
                     <Check className="h-3.5 w-3.5" />
-                    Ativa
+                    Ativo
                   </span>
                 ) : null}
               </div>
@@ -118,6 +125,7 @@ export default function SelecionarHouseholdPage() {
             {households.map((household) => {
               const selected = household.id === activeHouseholdId;
               const gerenciando = gerenciandoId === household.id;
+              const pessoal = ehPessoal(household.nome);
 
               return (
                 <div
@@ -137,13 +145,24 @@ export default function SelecionarHouseholdPage() {
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-canvas-200 border border-canvas-300">
-                            <Home className="h-4 w-4 text-brand-600" />
+                          <div className={`flex h-10 w-10 items-center justify-center rounded-lg border ${pessoal ? 'bg-canvas-200 border-canvas-300' : 'bg-canvas-200 border-canvas-300'}`}>
+                            {pessoal ? (
+                              <User className="h-4 w-4 text-ink-500" />
+                            ) : (
+                              <Home className="h-4 w-4 text-brand-600" />
+                            )}
                           </div>
 
                           <div className="min-w-0">
-                            <div className="truncate font-semibold text-ink-900">
-                              {household.nome}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="truncate font-semibold text-ink-900">
+                                {household.nome}
+                              </span>
+                              {pessoal ? (
+                                <span className="inline-flex items-center rounded-full border border-canvas-300 bg-canvas-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-ink-500">
+                                  Pessoal
+                                </span>
+                              ) : null}
                             </div>
                             <div className="text-xs text-ink-500 uppercase tracking-wider">
                               {household.membership.papel}
@@ -154,7 +173,7 @@ export default function SelecionarHouseholdPage() {
                         {selected ? (
                           <span className="inline-flex items-center gap-2 rounded-full border border-brand-300 bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-700">
                             <Check className="h-3.5 w-3.5" />
-                            Ativa
+                            Ativo
                           </span>
                         ) : null}
                       </div>
@@ -163,7 +182,7 @@ export default function SelecionarHouseholdPage() {
                     <button
                       type="button"
                       aria-label={gerenciando ? 'Fechar gerenciamento' : `Gerenciar ${household.nome}`}
-                      title={gerenciando ? 'Fechar' : 'Gerenciar família'}
+                      title={gerenciando ? 'Fechar' : 'Gerenciar'}
                       onClick={() => handleToggleGerenciar(household.id)}
                       className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-ink-500 transition hover:bg-brand-50 hover:text-brand-600"
                     >
@@ -180,11 +199,11 @@ export default function SelecionarHouseholdPage() {
                       )}
                     </button>
 
-                    {household.membership.papel === 'owner' ? (
+                    {household.membership.papel === 'owner' && !pessoal ? (
                       <button
                         type="button"
                         aria-label={`Excluir ${household.nome}`}
-                        title="Excluir família"
+                        title="Excluir"
                         disabled={deleting}
                         onClick={() => solicitarExclusao(household.id, household.nome)}
                         className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-500 transition hover:bg-state-error/10 hover:text-state-error disabled:cursor-not-allowed disabled:opacity-50"
@@ -206,7 +225,7 @@ export default function SelecionarHouseholdPage() {
 
           <div className="mt-6 flex justify-between items-center gap-3 text-sm">
             <Link to="/onboarding" className="text-brand-600 hover:underline">
-              Criar outra família
+              Criar nova família
             </Link>
             <Link to="/" className="text-ink-500 hover:text-ink-900 transition">
               Voltar
@@ -235,7 +254,7 @@ export default function SelecionarHouseholdPage() {
                   id="confirmar-exclusao-titulo"
                   className="mt-1 font-display text-h2 font-semibold text-ink-900"
                 >
-                  Excluir família?
+                  Excluir espaço?
                 </h2>
               </div>
               <button
@@ -249,7 +268,7 @@ export default function SelecionarHouseholdPage() {
             </div>
 
             <p className="mt-4 text-sm leading-6 text-ink-500">
-              Você está prestes a excluir a família{' '}
+              Você está prestes a excluir o espaço{' '}
               <strong className="font-semibold text-ink-900">
                 {familiaParaExcluir.nome}
               </strong>
@@ -271,7 +290,7 @@ export default function SelecionarHouseholdPage() {
                 className="inline-flex items-center gap-2 rounded-lg bg-state-error px-4 py-2.5 font-semibold text-white transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Trash2 className="h-4 w-4" />
-                {deleting ? 'Excluindo…' : 'Excluir família'}
+                {deleting ? 'Excluindo…' : 'Excluir espaço'}
               </button>
             </div>
           </div>

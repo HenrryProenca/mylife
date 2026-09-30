@@ -30,7 +30,7 @@ create table if not exists public.households (
   updated_at   timestamptz not null default now()
 );
 
-comment on table public.households is 'Família / grupo financeiro.';
+comment on table public.households is 'Família / grupo financeiro. Inclui o household pessoal de cada usuário.';
 
 -- ============================================================================
 -- 3. HOUSEHOLD_MEMBROS
@@ -63,7 +63,6 @@ create table if not exists public.categorias (
   ativa          boolean not null default true,
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now(),
-  -- Nome único por household, tipo E natureza. Permite "Outros" em naturezas diferentes.
   unique (household_id, nome, tipo, natureza)
 );
 
@@ -184,7 +183,6 @@ create table if not exists public.household_convites (
 
 comment on table public.household_convites is 'Convites pendentes para um household.';
 
--- Único: apenas 1 convite pendente por email por household
 create unique index if not exists uniq_convite_pendente
   on public.household_convites (household_id, email_convidado)
   where status = 'pendente';
@@ -266,7 +264,7 @@ end;
 $$;
 
 -- ============================================================================
--- TRIGGER: cria perfil automaticamente quando um usuário se cadastra
+-- TRIGGER: cria perfil + household pessoal no cadastro
 -- ============================================================================
 create or replace function public.handle_new_user()
 returns trigger
@@ -274,14 +272,30 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_nome           text;
+  v_primeiro_nome  text;
+  v_household_id   uuid;
 begin
+  v_nome := coalesce(new.raw_user_meta_data->>'nome', split_part(new.email, '@', 1));
+  v_primeiro_nome := split_part(v_nome, ' ', 1);
+
   insert into public.perfis (id, nome, avatar_url)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'nome', split_part(new.email, '@', 1)),
+    v_nome,
     new.raw_user_meta_data->>'avatar_url'
   )
   on conflict (id) do nothing;
+
+  insert into public.households (nome, created_by)
+  values (v_primeiro_nome || ' (pessoal)', new.id)
+  returning id into v_household_id;
+
+  insert into public.household_membros (household_id, user_id, papel)
+  values (v_household_id, new.id, 'owner')
+  on conflict (household_id, user_id) do nothing;
+
   return new;
 end;
 $$;
@@ -305,7 +319,7 @@ as $$
     select 1
     from public.household_membros
     where household_id = h
-      and user_id = auth.uid()
+      and user_id = (select auth.uid())
   );
 $$;
 
@@ -572,7 +586,7 @@ create policy convites_select on public.household_convites
   for select to authenticated
   using (
     public.is_household_member(household_id)
-    or email_convidado = (select email from auth.users where id = auth.uid())
+    or lower(email_convidado) = lower((auth.jwt() ->> 'email')::text)
   );
 
 drop policy if exists convites_insert on public.household_convites;
