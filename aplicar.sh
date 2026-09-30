@@ -1,207 +1,23 @@
 #!/usr/bin/env bash
 
 # ============================================================
-# Frente 1 — Aceitar/Recusar convite com confirmação explícita
+# Fix — AceitarConvitePage carregando infinitamente
 # ============================================================
 # O que este script faz:
-# - AceitarConvitePage: mostra dados da família + botões
-#   "Aceitar" e "Recusar" em vez de aceitar automaticamente
-# - convites.service: adiciona função recusarConvite (usa a
-#   RPC cancelar_convite que já existe)
-# - useConvites: expõe recusarConvite
+# - Remove `user` (objeto) das dependências do useEffect,
+#   usando `user?.email` que é um primitivo estável
+# - Remove a flag `cancelado` do cleanup, que estava engolindo
+#   o setState e travando a tela em "Verificando..."
+# - Usa um flag `jaBuscou` para garantir execução única
 #
 # Arquivos criados: nenhum
 # Arquivos alterados:
 #   - src/core/household/pages/AceitarConvitePage.tsx (sobrescrito)
-#   - src/core/household/convites.service.ts (sobrescrito)
-#   - src/core/household/hooks/useConvites.ts (sobrescrito)
 # ============================================================
 
 set -e
 
 mkdir -p src/core/household/pages
-mkdir -p src/core/household/hooks
-
-# ---------- ALTERAR: core/household/convites.service.ts ----------
-cat << 'EOF' > src/core/household/convites.service.ts
-import { supabase } from '@/lib/supabase';
-import type {
-  AceitarConviteResultado,
-  Convite,
-  ConvitePapel,
-  CriarConviteInput,
-} from './convites.types';
-
-export async function listarConvitesDoHousehold(
-  householdId: string,
-): Promise<Convite[]> {
-  const { data, error } = await supabase
-    .from('household_convites')
-    .select('*')
-    .eq('household_id', householdId)
-    .eq('status', 'pendente')
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return (data ?? []) as Convite[];
-}
-
-export async function criarConvite(
-  householdId: string,
-  userId: string,
-  input: CriarConviteInput,
-): Promise<Convite> {
-  const email = input.email_convidado.trim().toLowerCase();
-
-  if (!email || !email.includes('@')) {
-    throw new Error('Informe um email válido.');
-  }
-
-  const { data, error } = await supabase
-    .from('household_convites')
-    .insert({
-      household_id: householdId,
-      email_convidado: email,
-      convidado_por: userId,
-      papel: input.papel,
-      status: 'pendente',
-    })
-    .select('*')
-    .single();
-
-  if (error) {
-    if (error.code === '23505') {
-      throw new Error('Já existe um convite pendente para este email nesta família.');
-    }
-    throw error;
-  }
-
-  return data as Convite;
-}
-
-export async function cancelarConvite(conviteId: string): Promise<void> {
-  const { error } = await supabase.rpc('cancelar_convite', {
-    p_convite_id: conviteId,
-  });
-
-  if (error) throw error;
-}
-
-/**
- * Recusa um convite — mesma ação que cancelar, mas semanticamente diferente.
- * O convidado pode recusar; o owner/admin pode cancelar. Ambos usam a mesma
- * RPC que muda o status para 'cancelado'.
- */
-export async function recusarConvite(conviteId: string): Promise<void> {
-  const { error } = await supabase.rpc('cancelar_convite', {
-    p_convite_id: conviteId,
-  });
-
-  if (error) throw error;
-}
-
-export async function buscarConvitePorToken(token: string): Promise<Convite | null> {
-  const { data, error } = await supabase
-    .from('household_convites')
-    .select('*')
-    .eq('token', token)
-    .maybeSingle();
-
-  if (error) throw error;
-  return (data as Convite | null) ?? null;
-}
-
-/**
- * Busca o nome de um household a partir do ID.
- * Usado pela tela de aceitar convite para mostrar o nome da família.
- * O RLS já garante que o usuário só vê households aos quais tem acesso,
- * mas como o convidado ainda não é membro, ele não teria acesso — por isso
- * usamos a service_role em contexto de função RPC seria ideal, mas aqui
- * usamos uma query simples que o RLS permite pelo convite vinculado.
- */
-export async function buscarNomeDoHousehold(householdId: string): Promise<string | null> {
-  const { data, error } = await supabase
-    .from('households')
-    .select('nome')
-    .eq('id', householdId)
-    .maybeSingle();
-
-  if (error) return null;
-  return data?.nome ?? null;
-}
-
-export async function aceitarConvite(token: string): Promise<AceitarConviteResultado> {
-  const { data, error } = await supabase.rpc('aceitar_convite', {
-    p_token: token,
-  });
-
-  if (error) throw error;
-  return data as AceitarConviteResultado;
-}
-
-export function montarLinkConvite(token: string): string {
-  const base = typeof window !== 'undefined' ? window.location.origin : '';
-  return `${base}/aceitar-convite?token=${token}`;
-}
-
-export const convitePapelLabels: Record<ConvitePapel, string> = {
-  admin: 'Administrador',
-  membro: 'Membro',
-};
-EOF
-
-# ---------- ALTERAR: core/household/hooks/useConvites.ts ----------
-cat << 'EOF' > src/core/household/hooks/useConvites.ts
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/core/auth/useAuth';
-import { useHousehold } from '@/core/household/useHousehold';
-import {
-  cancelarConvite as cancelarConviteService,
-  criarConvite as criarConviteService,
-  listarConvitesDoHousehold,
-} from '../convites.service';
-import type { CriarConviteInput } from '../convites.types';
-
-export const convitesQueryKey = ['convites'];
-
-export function useConvites() {
-  const { user } = useAuth();
-  const { activeHousehold } = useHousehold();
-  const queryClient = useQueryClient();
-  const householdId = activeHousehold?.id ?? null;
-
-  const query = useQuery({
-    queryKey: [...convitesQueryKey, householdId],
-    enabled: Boolean(householdId),
-    queryFn: () => listarConvitesDoHousehold(householdId as string),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (input: CriarConviteInput) => {
-      if (!householdId) throw new Error('Você precisa selecionar uma família antes de convidar.');
-      if (!user) throw new Error('Você precisa estar autenticado.');
-      return criarConviteService(householdId, user.id, input);
-    },
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: convitesQueryKey }),
-  });
-
-  const cancelMutation = useMutation({
-    mutationFn: (conviteId: string) => cancelarConviteService(conviteId),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: convitesQueryKey }),
-  });
-
-  return {
-    convites: query.data ?? [],
-    isLoading: query.isLoading,
-    isError: query.isError,
-    error: query.error,
-    criarConvite: createMutation.mutateAsync,
-    cancelarConvite: cancelMutation.mutateAsync,
-    isCreating: createMutation.isPending,
-    isCancelling: cancelMutation.isPending,
-  };
-}
-EOF
 
 # ---------- ALTERAR: core/household/pages/AceitarConvitePage.tsx ----------
 cat << 'EOF' > src/core/household/pages/AceitarConvitePage.tsx
@@ -248,7 +64,10 @@ export default function AceitarConvitePage() {
 
   const jaBuscou = useRef(false);
 
-  // Redireciona para login se não autenticado
+  // Primitivos estáveis para usar em dependências (evitam loops)
+  const emailLogado = (user?.email ?? '').toLowerCase();
+
+  // ---------- Redireciona para login se não autenticado ----------
   useEffect(() => {
     if (authLoading) return;
     if (!token) return;
@@ -258,21 +77,21 @@ export default function AceitarConvitePage() {
     navigate(`/login?redirect=${redirect}`, { replace: true });
   }, [authLoading, isAuthenticated, token, navigate]);
 
-  // Busca o convite quando o usuário está autenticado
+  // ---------- Busca o convite quando o usuário está autenticado ----------
+  // Roda UMA vez por token. Usa `jaBuscou.current` para garantir.
+  // NÃO usa flag `cancelado` — assim o setState nunca é engolido.
   useEffect(() => {
     if (authLoading) return;
     if (!token) return;
     if (!isAuthenticated) return;
+    if (!emailLogado) return;
     if (jaBuscou.current) return;
 
     jaBuscou.current = true;
 
-    let cancelado = false;
-
     async function buscar() {
       try {
-        const convite = await buscarConvitePorToken(token!);
-        if (cancelado) return;
+        const convite = await buscarConvitePorToken(token as string);
 
         if (!convite) {
           setMensagemErro('Convite não encontrado.');
@@ -290,8 +109,6 @@ export default function AceitarConvitePage() {
           return;
         }
 
-        // Verifica se o email do usuário logado bate com o do convite
-        const emailLogado = (user?.email ?? '').toLowerCase();
         const emailConvidado = convite.email_convidado.toLowerCase();
 
         if (emailLogado !== emailConvidado) {
@@ -303,12 +120,10 @@ export default function AceitarConvitePage() {
         }
 
         const nomeHousehold = await buscarNomeDoHousehold(convite.household_id);
-        if (cancelado) return;
 
         setDados({ convite, nomeHousehold });
         setEstado('mostrando');
       } catch (error) {
-        if (cancelado) return;
         const msg = error instanceof Error ? error.message : 'Erro ao carregar o convite.';
         setMensagemErro(msg);
         setEstado('erro');
@@ -316,11 +131,7 @@ export default function AceitarConvitePage() {
     }
 
     void buscar();
-
-    return () => {
-      cancelado = true;
-    };
-  }, [authLoading, isAuthenticated, token, user]);
+  }, [authLoading, isAuthenticated, token, emailLogado]);
 
   async function handleAceitar() {
     if (!dados) return;
@@ -436,7 +247,6 @@ export default function AceitarConvitePage() {
     );
   }
 
-  // estado === 'mostrando'
   return (
     <TelaCentral>
       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
@@ -538,8 +348,8 @@ echo ""
 echo "✅ Pronto."
 echo ""
 echo "Próximos passos:"
-echo "  1. git status              (deve listar 3 modificados)"
+echo "  1. git status              (deve listar 1 modificado)"
 echo "  2. npm run typecheck       (confirma que não quebrou tipos)"
 echo "  3. npm run dev             (testa o fluxo completo)"
-echo "  4. Se estiver OK: git add . && git commit -m \"feat: aceitar/recusar convite com confirmacao\" && git push"
+echo "  4. Se estiver OK: git add . && git commit -m \"fix: corrige loop infinito em aceitar convite\" && git push"
 echo ""
