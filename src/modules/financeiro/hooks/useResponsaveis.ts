@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useHousehold } from '@/core/household/useHousehold';
+import { podeEscreverNoHousehold } from '@/core/household/permissoes';
 import {
   atualizarResponsavel as atualizarResponsavelService,
   criarResponsavel as criarResponsavelService,
@@ -19,20 +20,22 @@ export function useResponsaveis() {
   const { activeHousehold } = useHousehold();
   const queryClient = useQueryClient();
   const householdId = activeHousehold?.id ?? null;
+  const podeEscrever = podeEscreverNoHousehold(activeHousehold?.membership.papel);
 
   const query = useQuery({
     queryKey: [...responsaveisQueryKey, householdId],
     enabled: Boolean(householdId),
     queryFn: async () => {
       if (!householdId) return [];
-      await garantirResponsaveisPadrao(householdId);
+      if (podeEscrever) await garantirResponsaveisPadrao(householdId);
       return listarResponsaveisAtivos(householdId);
     },
   });
 
   const createMutation = useMutation({
     mutationFn: (values: ResponsavelFormValues) => {
-      if (!householdId) throw new Error('Você precisa selecionar uma família antes de criar responsáveis.');
+      if (!householdId) throw new Error('Você precisa selecionar um espaço antes de criar responsáveis.');
+      if (!podeEscrever) throw new Error('Seu acesso permite apenas visualizar os dados deste espaço.');
       const input: ResponsavelInsertInput = {
         household_id: householdId,
         nome: values.nome,
@@ -52,7 +55,8 @@ export function useResponsaveis() {
       responsavelId: string;
       values: ResponsavelFormValues;
     }) => {
-      if (!householdId) throw new Error('Você precisa selecionar uma família antes de editar responsáveis.');
+      if (!householdId) throw new Error('Você precisa selecionar um espaço antes de editar responsáveis.');
+      if (!podeEscrever) throw new Error('Seu acesso permite apenas visualizar os dados deste espaço.');
       const input: ResponsavelUpdateInput = {
         nome: values.nome,
         user_id: values.user_id || null,
@@ -65,7 +69,8 @@ export function useResponsaveis() {
 
   const deleteMutation = useMutation({
     mutationFn: (responsavelId: string) => {
-      if (!householdId) throw new Error('Você precisa selecionar uma família antes de excluir responsáveis.');
+      if (!householdId) throw new Error('Você precisa selecionar um espaço antes de excluir responsáveis.');
+      if (!podeEscrever) throw new Error('Seu acesso permite apenas visualizar os dados deste espaço.');
       return excluirResponsavelService(householdId, responsavelId);
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: responsaveisQueryKey }),

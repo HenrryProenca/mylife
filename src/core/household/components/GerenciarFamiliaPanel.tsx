@@ -4,16 +4,27 @@ import { FamilyInvitesList } from './FamilyInvitesList';
 import { FamilyMembersList } from './FamilyMembersList';
 import { useMembros } from '../hooks/useMembros';
 import type { HouseholdWithMembership } from '../types';
+import { useAuth } from '@/core/auth/useAuth';
+import { podeGerenciarHousehold } from '../permissoes';
 
 interface GerenciarFamiliaPanelProps {
   household: HouseholdWithMembership;
 }
 
 export function GerenciarFamiliaPanel({ household }: GerenciarFamiliaPanelProps) {
-  const { membros, isLoading: carregandoMembros } = useMembros();
+  const { user } = useAuth();
+  const {
+    membros,
+    isLoading: carregandoMembros,
+    removerMembro,
+    isRemoving,
+    alterarPapel,
+    isUpdatingRole,
+  } = useMembros(household.id);
 
   const papelAtual = household.membership.papel;
-  const podeConvidar = papelAtual === 'owner' || papelAtual === 'admin';
+  const espacoPessoal = /\(pessoal\)$/i.test(household.nome);
+  const podeGerenciar = !espacoPessoal && podeGerenciarHousehold(papelAtual);
 
   return (
     <div className="space-y-5">
@@ -31,17 +42,19 @@ export function GerenciarFamiliaPanel({ household }: GerenciarFamiliaPanelProps)
         </div>
       </header>
 
-      {podeConvidar ? (
+      {podeGerenciar ? (
         <section className="rounded-xl border border-canvas-300 bg-white p-4">
           <h3 className="font-display text-h3 text-ink-900">Convidar membro</h3>
           <p className="mt-1 mb-3 text-xs text-ink-500">
             Crie um convite e envie o link para a pessoa entrar na família.
           </p>
-          <FamilyInviteForm />
+          <FamilyInviteForm householdId={household.id} />
         </section>
       ) : (
         <div className="rounded-lg border border-canvas-300 bg-canvas-100 p-3 text-xs text-ink-500">
-          Apenas dono e administradores podem convidar novos membros.
+          {espacoPessoal
+            ? 'Este espaço é individual. Para compartilhar dados, crie uma família separada.'
+            : 'Apenas dono e administradores podem convidar novos membros.'}
         </div>
       )}
 
@@ -55,16 +68,27 @@ export function GerenciarFamiliaPanel({ household }: GerenciarFamiliaPanelProps)
         <p className="mt-1 mb-3 text-xs text-ink-500">
           Pessoas que já fazem parte desta família.
         </p>
-        <FamilyMembersList membros={membros} isLoading={carregandoMembros} />
+        <FamilyMembersList
+          membros={membros}
+          isLoading={carregandoMembros}
+          podeRemover={podeGerenciar}
+          usuarioAtualId={user?.id ?? null}
+          onRemover={removerMembro}
+          isRemoving={isRemoving}
+          onAlterarPapel={(membroId, papel) => alterarPapel({ membroId, papel })}
+          isUpdatingRole={isUpdatingRole}
+        />
       </section>
 
-      <section className="rounded-xl border border-canvas-300 bg-white p-4">
-        <h3 className="font-display text-h3 text-ink-900">Convites pendentes</h3>
-        <p className="mt-1 mb-3 text-xs text-ink-500">
-          Convites criados que ainda não foram aceitos.
-        </p>
-        <FamilyInvitesList />
-      </section>
+      {podeGerenciar ? (
+        <section className="rounded-xl border border-canvas-300 bg-white p-4">
+          <h3 className="font-display text-h3 text-ink-900">Convites pendentes</h3>
+          <p className="mt-1 mb-3 text-xs text-ink-500">
+            Convites criados que ainda não foram aceitos.
+          </p>
+          <FamilyInvitesList householdId={household.id} />
+        </section>
+      ) : null}
     </div>
   );
 }

@@ -120,5 +120,6 @@ export function montarLinkConvite(token: string): string {
 
 export const convitePapelLabels: Record<ConvitePapel, string> = {
   admin: 'Administrador',
-  membro: 'Membro',
+  membro: 'Leitura e escrita',
+  visualizador: 'Somente visualização',
 };

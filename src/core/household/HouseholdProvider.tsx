@@ -63,7 +63,20 @@ export function HouseholdProvider({ children }: { children: ReactNode }) {
     setLoading(true);
 
     try {
-      const householdList = await listarHouseholdsDoUsuario(user.id);
+      let householdList = await listarHouseholdsDoUsuario(user.id);
+
+      if (householdList.length === 0) {
+        const nomePerfil = user.user_metadata?.nome;
+        const primeiroNome =
+          typeof nomePerfil === 'string'
+            ? nomePerfil.trim().split(/\s+/)[0]
+            : user.email?.split('@')[0] ?? 'Meu espaço';
+        const espacoPessoal = await createHousehold(user.id, {
+          nome: `${primeiroNome || 'Meu espaço'} (pessoal)`,
+        });
+        householdList = [espacoPessoal];
+      }
+
       aplicarHouseholds(householdList);
     } catch (error) {
       console.error('[household] erro ao carregar households:', error);

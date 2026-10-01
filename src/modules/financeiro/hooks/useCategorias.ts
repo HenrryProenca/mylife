@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useHousehold } from '@/core/household/useHousehold';
+import { podeEscreverNoHousehold } from '@/core/household/permissoes';
 import {
   listarCategoriasPorHousehold,
   garantirCategoriasPadrao,
@@ -21,6 +22,7 @@ export function useCategorias() {
   const queryClient = useQueryClient();
 
   const householdId = activeHousehold?.id ?? null;
+  const podeEscrever = podeEscreverNoHousehold(activeHousehold?.membership.papel);
 
   const query = useQuery({
     queryKey: [...categoriasQueryKey, householdId],
@@ -30,7 +32,7 @@ export function useCategorias() {
         return [] as Categoria[];
       }
 
-      await garantirCategoriasPadrao(householdId);
+      if (podeEscrever) await garantirCategoriasPadrao(householdId);
       return listarCategoriasPorHousehold(householdId);
     },
   });
@@ -38,8 +40,9 @@ export function useCategorias() {
   const createMutation = useMutation({
     mutationFn: async (input: CategoriaFormValues) => {
       if (!householdId) {
-        throw new Error('Você precisa selecionar uma família antes de criar categorias.');
+        throw new Error('Você precisa selecionar um espaço antes de criar categorias.');
       }
+      if (!podeEscrever) throw new Error('Seu acesso permite apenas visualizar os dados deste espaço.');
 
       const payload: CategoriaInsertInput = {
         household_id: householdId,
@@ -67,8 +70,9 @@ export function useCategorias() {
       values: CategoriaFormValues;
     }) => {
       if (!householdId) {
-        throw new Error('Você precisa selecionar uma família antes de editar categorias.');
+        throw new Error('Você precisa selecionar um espaço antes de editar categorias.');
       }
+      if (!podeEscrever) throw new Error('Seu acesso permite apenas visualizar os dados deste espaço.');
 
       const payload: CategoriaUpdateInput = {
         nome: values.nome,
@@ -89,8 +93,9 @@ export function useCategorias() {
   const deleteMutation = useMutation({
     mutationFn: async (categoriaId: string) => {
       if (!householdId) {
-        throw new Error('Você precisa selecionar uma família antes de excluir categorias.');
+        throw new Error('Você precisa selecionar um espaço antes de excluir categorias.');
       }
+      if (!podeEscrever) throw new Error('Seu acesso permite apenas visualizar os dados deste espaço.');
 
       await excluirCategoria(householdId, categoriaId);
       return categoriaId;

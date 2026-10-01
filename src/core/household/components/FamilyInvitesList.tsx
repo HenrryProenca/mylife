@@ -3,8 +3,8 @@ import { toast } from 'sonner';
 import { useConvites } from '../hooks/useConvites';
 import { convitePapelLabels, montarLinkConvite } from '../convites.service';
 
-export function FamilyInvitesList() {
-  const { convites, isLoading, cancelarConvite, isCancelling } = useConvites();
+export function FamilyInvitesList({ householdId }: { householdId: string }) {
+  const { convites, isLoading, cancelarConvite, isCancelling } = useConvites(householdId);
 
   async function handleCopy(token: string) {
     const link = montarLinkConvite(token);

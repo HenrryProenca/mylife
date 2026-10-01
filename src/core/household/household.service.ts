@@ -16,7 +16,7 @@ export interface MembroDoHousehold {
   id: string;
   household_id: string;
   user_id: string;
-  papel: 'owner' | 'admin' | 'membro';
+  papel: 'owner' | 'admin' | 'membro' | 'visualizador';
   nome: string;
   avatar_url: string | null;
   created_at: string;
@@ -128,7 +128,7 @@ export async function listarMembrosDoHousehold(
     id: string;
     household_id: string;
     user_id: string;
-    papel: 'owner' | 'admin' | 'membro';
+    papel: 'owner' | 'admin' | 'membro' | 'visualizador';
     created_at: string;
     perfil: { nome: string; avatar_url: string | null } | null;
   };
@@ -142,6 +142,26 @@ export async function listarMembrosDoHousehold(
     nome: row.perfil?.nome ?? 'Membro',
     avatar_url: row.perfil?.avatar_url ?? null,
   }));
+}
+
+export async function removerMembroHousehold(membroId: string): Promise<void> {
+  const { error } = await supabase.rpc('remover_membro_household', {
+    p_membro_id: membroId,
+  });
+
+  if (error) throw error;
+}
+
+export async function alterarPapelMembroHousehold(
+  membroId: string,
+  papel: Exclude<HouseholdMember['papel'], 'owner'>,
+): Promise<void> {
+  const { error } = await supabase.rpc('alterar_papel_membro_household', {
+    p_membro_id: membroId,
+    p_papel: papel,
+  });
+
+  if (error) throw error;
 }
 
 export async function createHousehold(

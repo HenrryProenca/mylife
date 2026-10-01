@@ -9,7 +9,7 @@
 ## 1. Estado atual
 
 Fase: 5 — Consolidação do módulo Financeiro
-Última atualização: 2026-09-28
+Última atualização: 2026-10-01
 
 O módulo Financeiro está funcional. Tem dashboard, categorias, transações,
 parcelamento, contas como etiqueta e import/export CSV. Os fluxos
@@ -107,13 +107,18 @@ Recharts e nos fallbacks por tokens da paleta oficial.
 
 ## 3. Imediatamente depois
 
+Por solicitação do usuário, a gestão de família foi antecipada e entregue:
+convites com papel, alteração de permissões, remoção de membros e uso de
+espaço pessoal sem associação obrigatória a família. A consolidação do
+Financeiro continua sendo a fase principal do roadmap.
+
 Assim que a consolidação fechar:
 
 - Fase 6 — CRUD de Contas (criar/editar/excluir conta no app)
 - Fase 7 — CRUD de Responsáveis (se decidido manter a tabela)
 - Fase 8 — Refinamento do dashboard (métricas adicionais)
 - Fase 9 — Importação CSV avançada (detecção de cabeçalho)
-- Fase 10 — Gestão de família (convites, papéis)
+- Fase 10 — Gestão de família (convites, papéis) [entregue antecipadamente]
 - Fase 11 — Deploy Netlify
 - Fase 12 — Primeiro módulo novo (Rotina ou similar)
 

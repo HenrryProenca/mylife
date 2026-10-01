@@ -27,13 +27,12 @@ drop policy if exists membros_insert on public.household_membros;
 create policy membros_insert on public.household_membros
   for insert to authenticated
   with check (
-    (select auth.uid()) = user_id
-    or exists (
-      select 1
-      from public.household_membros existing_member
-      where existing_member.household_id = household_membros.household_id
-        and existing_member.user_id = (select auth.uid())
-        and existing_member.papel in ('owner', 'admin')
+    exists (
+      select 1 from public.households
+      where id = household_membros.household_id
+        and created_by = (select auth.uid())
+        and household_membros.user_id = (select auth.uid())
+        and household_membros.papel = 'owner'
     )
   );
 

@@ -46,7 +46,15 @@ Antes de qualquer coisa, leia os documentos oficiais na raiz:
 3. Configure o banco:
 
    No Supabase, abra SQL Editor → cole o conteúdo de supabase/schema.sql
-   → Run.
+   → Run. Para um banco já configurado, aplique também, nesta ordem,
+   `supabase/permissoes-household.sql` e `supabase/remover-membro-household.sql`
+   no SQL Editor. `supabase/fix-household-rls.sql` contém ajustes adicionais
+   de políticas RLS quando necessários.
+
+   Os espaços pessoais e familiares são isolados entre si. Em famílias,
+   owner/admin gerenciam membros e papéis, membro pode ler e escrever e
+   visualizador tem acesso somente de leitura. O usuário pode usar o app
+   sem entrar em uma família.
 
 4. Rode o projeto:
 

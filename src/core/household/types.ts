@@ -1,4 +1,4 @@
-export type HouseholdRole = 'owner' | 'admin' | 'membro';
+export type HouseholdRole = 'owner' | 'admin' | 'membro' | 'visualizador';
 
 export interface Household {
   id: string;

@@ -4,7 +4,7 @@
 > Não contém sugestões de correção. Serve como base para priorização e para
 > a escrita dos documentos oficiais (PRD, ARCHITECTURE, RULES, DESIGN, TASK, MEMORY).
 >
-> Última atualização: 2026-09-28
+> Última atualização: 2026-10-01
 
 ---
 
@@ -43,6 +43,7 @@
         - RecuperarSenhaPage.tsx
         - RedefinirSenhaPage.tsx
     - household/
+      - permissoes.ts
       - HouseholdGuard.tsx
       - HouseholdProvider.tsx
       - household.service.ts
@@ -218,10 +219,13 @@ LancamentoForm (com tipo = 'cartao' e parcela_total > 1) → criarLancamento:
 - Tabela responsaveis — existe no banco, não tem service, hook ou tela
 
 ### RLS
-- Todas as tabelas de negócio têm policy is_household_member(household_id)
+- Dados de negócio isolados por household_id; políticas distinguem leitura, escrita e gestão
 - households_delete exige papel owner
-- household_membros permite insert do próprio owner + insert por admin/owner
-- Função is_household_member é security definer
+- Papéis owner/admin (gestão), membro (leitura/escrita) e visualizador (somente leitura)
+- Convite, alteração de papel e remoção de membro disponíveis para owner/admin
+- Espaço pessoal é criado/selecionado para usuário sem associação familiar e não aceita convites
+- SQL de atualização: permissoes-household.sql e remover-membro-household.sql
+- Funções de autorização são security definer
 
 ### Triggers
 - set_updated_at em todas as tabelas com updated_at

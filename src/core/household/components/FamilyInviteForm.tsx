@@ -4,10 +4,10 @@ import { toast } from 'sonner';
 import { useConvites } from '../hooks/useConvites';
 import type { ConvitePapel } from '../convites.types';
 
-export function FamilyInviteForm() {
+export function FamilyInviteForm({ householdId }: { householdId: string }) {
   const [email, setEmail] = useState('');
   const [papel, setPapel] = useState<ConvitePapel>('membro');
-  const { criarConvite, isCreating } = useConvites();
+  const { criarConvite, isCreating } = useConvites(householdId);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,15 +48,16 @@ export function FamilyInviteForm() {
       </label>
 
       <label className="sm:w-48">
-        <span className="label-base">Papel</span>
+        <span className="label-base">Permissão</span>
         <select
           value={papel}
           onChange={(e) => setPapel(e.target.value as ConvitePapel)}
           className="input-base"
           disabled={isCreating}
         >
-          <option value="membro">Membro</option>
           <option value="admin">Administrador</option>
+          <option value="membro">Leitura e escrita</option>
+          <option value="visualizador">Somente visualização</option>
         </select>
       </label>
 

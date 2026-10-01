@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Home, Menu } from 'lucide-react';
+import { ChevronDown, ChevronRight, Home, Menu, User } from 'lucide-react';
 import { MYLIFE_MODULES } from './modules';
 import { useHousehold } from '@/core/household/useHousehold';
 
@@ -12,6 +12,7 @@ export default function Sidebar() {
 
   const hasNoHousehold = households.length === 0;
   const householdLabel = activeHousehold?.nome ?? 'Sem família';
+  const isPersonalSpace = Boolean(activeHousehold?.nome.match(/\(pessoal\)$/i));
   const destinoFamilia = hasNoHousehold ? '/onboarding' : '/selecionar-familia';
 
   return (
@@ -42,12 +43,12 @@ export default function Sidebar() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-                <Home className="h-4 w-4" />
+                {isPersonalSpace ? <User className="h-4 w-4" /> : <Home className="h-4 w-4" />}
               </div>
 
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-ink-500">
-                  {hasNoHousehold ? 'Minha família' : 'Família ativa'}
+                  {hasNoHousehold ? 'Espaço pessoal' : isPersonalSpace ? 'Espaço pessoal ativo' : 'Família ativa'}
                 </div>
                 <div className="truncate text-sm font-semibold text-ink-900">
                   {householdLabel}

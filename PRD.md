@@ -13,8 +13,8 @@ as áreas que uma pessoa precisa organizar no dia a dia: finanças, rotina,
 estudos, saúde e o que mais fizer sentido para ela.
 
 O produto é construído em módulos. Cada módulo cobre uma área da vida.
-Todos os módulos compartilham a mesma base: autenticação, família
-(household) e identidade visual.
+Todos os módulos compartilham a mesma base: autenticação, espaço de dados
+(pessoal ou familiar) e identidade visual.
 
 ---
 
@@ -28,6 +28,10 @@ Uso atual: uma família real (Wesley e Gabriella) usa o módulo Financeiro
 no dia a dia. A arquitetura foi preparada desde o início para múltiplos
 households, com isolamento de dados por RLS. O produto pode crescer para
 outras famílias sem refazer a base.
+
+O usuário pode organizar seus dados em um espaço pessoal sem criar ou
+selecionar uma família. Também pode participar de espaços familiares; os
+dados de cada espaço permanecem separados.
 
 ---
 
@@ -61,6 +65,8 @@ A promessa em uma frase: "sua vida em ordem, num só lugar".
   separada)
 - Marcar cada transação como pendente ou concluída
 - Importar e exportar transações em CSV
+- Compartilhar dados em família com papéis de administração, leitura e
+  leitura/escrita; administradores gerenciam membros e permissões
 
 ### Módulos futuros (não implementados ainda)
 
@@ -106,7 +112,7 @@ patrimonial" está fora de escopo.
 2. Modularidade real. Cada módulo vive isolado. Se um sai, os outros
    continuam funcionando.
 
-3. Segurança desde o primeiro dia. Isolamento de dados por household,
+3. Segurança desde o primeiro dia. Isolamento de dados por espaço,
    garantido no banco (RLS), não no frontend.
 
 4. Simplicidade no domínio. Não inventar complexidade onde não precisa.

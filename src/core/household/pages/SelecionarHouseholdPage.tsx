@@ -3,7 +3,15 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useHousehold } from '@/core/household/useHousehold';
+import type { HouseholdRole } from '../types';
 import { GerenciarFamiliaPanel } from '../components/GerenciarFamiliaPanel';
+
+const papelLabels: Record<HouseholdRole, string> = {
+  owner: 'Dono',
+  admin: 'Administrador',
+  membro: 'Leitura e escrita',
+  visualizador: 'Somente visualização',
+};
 
 function ehPessoal(nome: string): boolean {
   return /\(pessoal\)$/i.test(nome);
@@ -128,7 +136,7 @@ export default function SelecionarHouseholdPage() {
                               ) : null}
                             </div>
                             <div className="text-xs text-ink-500 uppercase tracking-wider">
-                              {household.membership.papel}
+                              {papelLabels[household.membership.papel]}
                             </div>
                           </div>
                         </div>

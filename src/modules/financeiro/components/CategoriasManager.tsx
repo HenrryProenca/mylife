@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { Check, Home, Pencil, PiggyBank, Plus, ShoppingBag, Tag, Trash2, TrendingUp, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { useHousehold } from '@/core/household/useHousehold';
+import { podeEscreverNoHousehold } from '@/core/household/permissoes';
 import { useCategorias } from '../hooks/useCategorias';
 import type { Categoria, CategoriaNatureza } from '../types/categorias.types';
 
@@ -20,6 +22,8 @@ function categoryNature(tab: CategoryTab): CategoriaNatureza {
 }
 
 export function CategoriasManager() {
+  const { activeHousehold } = useHousehold();
+  const podeEditar = podeEscreverNoHousehold(activeHousehold?.membership.papel);
   const { categorias, isLoading, createCategoria, updateCategoria, deleteCategoria, isCreating, isUpdating, isDeleting } = useCategorias();
   const [activeTab, setActiveTab] = useState<CategoryTab>('receita');
   const [newName, setNewName] = useState('');
@@ -72,7 +76,11 @@ export function CategoriasManager() {
     <div className="space-y-4">
       <div>
         <h2 className="font-display text-h3 text-ink-900">Gerenciar categorias</h2>
-        <p className="mt-1 text-xs text-ink-500">Adicione, renomeie ou exclua categorias usadas no dashboard.</p>
+        <p className="mt-1 text-xs text-ink-500">
+          {podeEditar
+            ? 'Adicione, renomeie ou exclua categorias usadas no dashboard.'
+            : 'Você tem acesso somente para visualizar estas categorias.'}
+        </p>
       </div>
       <div className="flex flex-wrap gap-1 rounded-lg border border-canvas-300 bg-canvas-100 p-1">
         {tabs.map(({ id, label, icon: Icon }) => (
@@ -91,7 +99,7 @@ export function CategoriasManager() {
           </button>
         ))}
       </div>
-      <div className="flex gap-2">
+      {podeEditar ? <div className="flex gap-2">
         <input
           value={newName}
           onChange={(event) => setNewName(event.target.value)}
@@ -108,12 +116,14 @@ export function CategoriasManager() {
           <Plus className="h-4 w-4" />
           Adicionar
         </button>
-      </div>
+      </div> : null}
       <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
         {isLoading ? (
           <p className="p-6 text-center text-sm text-ink-500">Carregando categorias...</p>
         ) : visible.length === 0 ? (
-          <p className="p-6 text-center text-sm text-ink-500">Nenhuma categoria. Adicione a primeira acima.</p>
+          <p className="p-6 text-center text-sm text-ink-500">
+            {podeEditar ? 'Nenhuma categoria. Adicione a primeira acima.' : 'Nenhuma categoria cadastrada.'}
+          </p>
         ) : visible.map((categoria) => (
           <div
             key={categoria.id}
@@ -132,7 +142,7 @@ export function CategoriasManager() {
                 <span className="text-sm text-ink-900">{categoria.nome}</span>
               )}
             </div>
-            <div className="flex gap-1">
+            {podeEditar ? <div className="flex gap-1">
               {editing?.id === categoria.id ? (
                 <>
                   <button
@@ -173,11 +183,11 @@ export function CategoriasManager() {
                   </button>
                 </>
               )}
-            </div>
+            </div> : null}
           </div>
         ))}
       </div>
-      <ConfirmDialog
+      {podeEditar ? <ConfirmDialog
         open={Boolean(deleting)}
         title="Excluir categoria"
         description={deleting ? `Tem certeza que deseja excluir "${deleting.nome}"?` : 'Tem certeza que deseja excluir esta categoria?'}
@@ -186,7 +196,7 @@ export function CategoriasManager() {
         onConfirm={() => void confirmDelete()}
         onCancel={() => setDeleting(null)}
         danger
-      />
+      /> : null}
     </div>
   );
 }

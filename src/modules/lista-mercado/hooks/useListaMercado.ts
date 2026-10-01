@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useHousehold } from '@/core/household/useHousehold';
+import { podeEscreverNoHousehold } from '@/core/household/permissoes';
 import {
   atualizarStatusItemListaMercado,
   criarItemListaMercado,
@@ -14,6 +15,7 @@ export function useListaMercado() {
   const { activeHousehold } = useHousehold();
   const queryClient = useQueryClient();
   const householdId = activeHousehold?.id ?? null;
+  const podeEscrever = podeEscreverNoHousehold(activeHousehold?.membership.papel);
 
   const query = useQuery({
     queryKey: [...listaMercadoQueryKey, householdId],
@@ -23,7 +25,8 @@ export function useListaMercado() {
 
   const createMutation = useMutation({
     mutationFn: (input: ListaMercadoItemInput) => {
-      if (!householdId) throw new Error('Você precisa selecionar uma família antes de adicionar itens.');
+      if (!householdId) throw new Error('Você precisa selecionar um espaço antes de adicionar itens.');
+      if (!podeEscrever) throw new Error('Seu acesso permite apenas visualizar os dados deste espaço.');
       return criarItemListaMercado(householdId, input);
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: listaMercadoQueryKey }),
@@ -31,7 +34,8 @@ export function useListaMercado() {
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: ListaMercadoStatus }) => {
-      if (!householdId) throw new Error('Você precisa selecionar uma família antes de atualizar o item.');
+      if (!householdId) throw new Error('Você precisa selecionar um espaço antes de atualizar o item.');
+      if (!podeEscrever) throw new Error('Seu acesso permite apenas visualizar os dados deste espaço.');
       return atualizarStatusItemListaMercado(householdId, id, status);
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: listaMercadoQueryKey }),
@@ -39,7 +43,8 @@ export function useListaMercado() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => {
-      if (!householdId) throw new Error('Você precisa selecionar uma família antes de excluir o item.');
+      if (!householdId) throw new Error('Você precisa selecionar um espaço antes de excluir o item.');
+      if (!podeEscrever) throw new Error('Seu acesso permite apenas visualizar os dados deste espaço.');
       return excluirItemListaMercado(householdId, id);
     },
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: listaMercadoQueryKey }),

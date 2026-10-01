@@ -107,7 +107,7 @@ Rotas protegidas (auth):
 - /onboarding         (criar família)
 - /selecionar-familia (trocar família ativa)
 
-Rotas protegidas (auth + family):
+Rotas protegidas (auth + espaço ativo, pessoal ou familiar):
 - /                   (home)
 - /financeiro         (dashboard do módulo)
 - /financeiro/categorias
@@ -139,8 +139,11 @@ O banco tem 8 tabelas, todas em public. Cada uma tem uma função clara:
 Isolamento:
 
 - Toda tabela de negócio tem household_id
-- Toda policy de RLS usa a função is_household_member(household_id)
+- Toda tabela de negócio é isolada por household_id, inclusive o espaço pessoal
+- Policies de leitura, escrita e administração verificam papel no banco
 - households_delete exige papel owner
+- Papéis: owner/admin gerenciam a família; membro pode ler e escrever;
+  visualizador pode apenas ler dados do espaço
 - Nenhum dado vaza entre households, mesmo via chamada direta à API
 
 A fonte de verdade do schema é supabase/schema.sql. Este documento não
@@ -155,9 +158,15 @@ AuthProvider escuta mudanças de sessão do Supabase. Ao logar, atualiza
 user e perfil. Ao deslogar, limpa o estado.
 
 ### Household
-HouseholdProvider carrega todos os households do usuário. Escolhe o
-ativo: primeiro tenta o localStorage; se não existir, usa o primeiro da
-lista. Se não houver nenhum, mantém sentinela "sem família".
+HouseholdProvider carrega os espaços disponíveis. Escolhe o ativo usando
+o localStorage ou o primeiro espaço disponível. Se o usuário ainda não
+participa de uma família, cria/usa seu espaço pessoal, sem bloquear o uso
+do produto. O espaço pessoal é isolado e não aceita convites.
+
+Convites e gestão de membros ficam restritos a owner/admin. O convite define
+o papel inicial; owner/admin podem alterá-lo ou remover membros. O papel
+visualizador não pode criar, editar ou excluir dados de negócio. Essas
+regras também são aplicadas por RLS/RPC no Supabase.
 
 ### Dados do módulo
 Hooks do módulo usam React Query com queryKey composta por household +

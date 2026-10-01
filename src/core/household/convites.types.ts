@@ -1,5 +1,5 @@
 export type ConviteStatus = 'pendente' | 'aceito' | 'cancelado';
-export type ConvitePapel = 'admin' | 'membro';
+export type ConvitePapel = 'admin' | 'membro' | 'visualizador';
 
 export interface Convite {
   id: string;

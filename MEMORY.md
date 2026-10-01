@@ -28,6 +28,11 @@ Regra: cada entrada tem no máximo 5 linhas. Se não couber, é porque não
 
 ## 1. Decisões estruturais
 
+### [2026-10] — DECISÃO — Espaço pessoal e papéis familiares
+Contexto: o uso não deve depender da criação de uma família; famílias precisam controlar acesso.
+Decisão: cada usuário pode usar espaço pessoal isolado; famílias têm owner/admin, membro (leitura/escrita) e visualizador (somente leitura).
+Impacto: convites, alteração de papel e remoção são restritos a owner/admin; RLS/RPC impõem as permissões no banco.
+
 ### [2026-09] — DECISÃO — Modelo de dados: livro-caixa, não gestor patrimonial
 Contexto: o projeto começou como controle financeiro pessoal (FinControl),
 e uma IA tentou expandir para gestão de contas com saldo.
