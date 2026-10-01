@@ -1,31 +1,26 @@
 import { useMemo, useState } from 'react';
-import { Check, Home, Pencil, PiggyBank, Plus, ShoppingBag, Tag, Trash2, TrendingUp, X } from 'lucide-react';
+import { Check, Pencil, PiggyBank, Plus, Tag, Trash2, TrendingUp, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useHousehold } from '@/core/household/useHousehold';
 import { podeEscreverNoHousehold } from '@/core/household/permissoes';
 import { useCategorias } from '../hooks/useCategorias';
-import type { Categoria, CategoriaNatureza } from '../types/categorias.types';
+import type { Categoria } from '../types/categorias.types';
 
-const tabs: Array<{ id: 'receita' | CategoriaNatureza | 'cartao'; label: string; icon: typeof Tag }> = [
+const tabs: Array<{ id: 'receita' | 'despesa' | 'investimento'; label: string; icon: typeof Tag }> = [
   { id: 'receita', label: 'Receitas', icon: TrendingUp },
-  { id: 'fixo', label: 'Fixo', icon: Home },
-  { id: 'variavel', label: 'Variável', icon: ShoppingBag },
-  { id: 'cartao', label: 'Cartão', icon: Tag },
-  { id: 'investimento', label: 'Investimento', icon: PiggyBank },
+  { id: 'despesa', label: 'Despesas', icon: Tag },
+  { id: 'investimento', label: 'Investimentos', icon: PiggyBank },
 ];
 
 type CategoryTab = typeof tabs[number]['id'];
-
-function categoryNature(tab: CategoryTab): CategoriaNatureza {
-  return tab === 'receita' ? 'outro' : tab === 'cartao' ? 'variavel' : tab;
-}
 
 export function CategoriasManager() {
   const { activeHousehold } = useHousehold();
   const podeEditar = podeEscreverNoHousehold(activeHousehold?.membership.papel);
   const { categorias, isLoading, createCategoria, updateCategoria, deleteCategoria, isCreating, isUpdating, isDeleting } = useCategorias();
   const [activeTab, setActiveTab] = useState<CategoryTab>('receita');
+  const [expenseNature, setExpenseNature] = useState<'fixo' | 'variavel'>('variavel');
   const [newName, setNewName] = useState('');
   const [editing, setEditing] = useState<Categoria | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -34,14 +29,16 @@ export function CategoriasManager() {
   const visible = useMemo(() => categorias.filter((categoria) => (
     activeTab === 'receita'
       ? categoria.tipo === 'receita'
-      : categoria.tipo === 'despesa' && categoria.natureza === categoryNature(activeTab)
-  )), [activeTab, categorias]);
+      : activeTab === 'investimento'
+        ? categoria.tipo === 'despesa' && categoria.natureza === 'investimento'
+        : categoria.tipo === 'despesa' && categoria.natureza === expenseNature
+  )), [activeTab, categorias, expenseNature]);
 
   async function addCategory() {
     const nome = newName.trim();
     if (!nome) return;
     try {
-      await createCategoria({ nome, tipo: activeTab === 'receita' ? 'receita' : 'despesa', natureza: categoryNature(activeTab), cor: '', icone: '', ativa: true });
+      await createCategoria({ nome, tipo: activeTab === 'receita' ? 'receita' : 'despesa', natureza: activeTab === 'receita' ? 'outro' : activeTab === 'investimento' ? 'investimento' : expenseNature, cor: '', icone: '', ativa: true });
       setNewName('');
       toast.success('Categoria adicionada.');
     } catch (error) {
@@ -99,6 +96,7 @@ export function CategoriasManager() {
           </button>
         ))}
       </div>
+      {activeTab === 'despesa' ? <label className="block max-w-xs"><span className="label-base">Natureza da despesa</span><select value={expenseNature} onChange={(event) => setExpenseNature(event.target.value as 'fixo' | 'variavel')} className="input-base"><option value="fixo">Fixa</option><option value="variavel">Variável</option></select></label> : null}
       {podeEditar ? <div className="flex gap-2">
         <input
           value={newName}

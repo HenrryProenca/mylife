@@ -25,6 +25,11 @@ Regra: cada entrada tem no máximo 5 linhas. Se não couber, é porque não
 
 ## 1. Decisões estruturais
 
+### [2026-10] — MUDANÇA — Tipos e análise do Financeiro
+Contexto: tipos de lançamento misturavam o tipo financeiro, natureza e forma de pagamento.
+Decisão: usar receita/despesa/investimento; natureza fixa/variável nas despesas e à vista/parcelado no cartão; responsáveis vinculados a membros.
+Impacto: investimentos são identificados pela natureza da categoria no schema atual; esta decisão substitui a decisão anterior sobre cinco tipos derivados. Importar planilhas foi removido e exportação permanece.
+
 ### [2026-10] — DECISÃO — Espaço pessoal e papéis familiares
 Contexto: o uso não deve depender da criação de uma família; famílias precisam controlar acesso.
 Decisão: cada usuário pode usar espaço pessoal isolado; famílias têm owner/admin, membro (leitura/escrita) e visualizador (somente leitura).

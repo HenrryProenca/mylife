@@ -1,7 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { garantirPerfil } from '@/core/auth/auth.service';
 import { buildSeedCategorias } from '@/modules/financeiro/utils/seedCategorias';
-import { buildSeedResponsaveis } from '@/modules/financeiro/utils/seedResponsaveis';
 import type {
   CreateHouseholdInput,
   Household,
@@ -222,25 +221,6 @@ export async function createHousehold(
     await supabase.from('households').delete().eq('id', household.id);
 
     throw new Error(`Falha ao criar categorias padrão: ${extrairMensagemErro(error)}`);
-  }
-
-  // ---------- SEED DE RESPONSÁVEIS ----------
-  try {
-    const seedResponsaveis = buildSeedResponsaveis(household.id);
-
-    if (seedResponsaveis.length > 0) {
-      const { error: seedResponsaveisError } = await supabase
-        .from('responsaveis')
-        .insert(seedResponsaveis);
-
-      if (seedResponsaveisError) throw seedResponsaveisError;
-    }
-  } catch (error) {
-    await supabase.from('categorias').delete().eq('household_id', household.id);
-    await supabase.from('household_membros').delete().eq('household_id', household.id);
-    await supabase.from('households').delete().eq('id', household.id);
-
-    throw new Error(`Falha ao criar responsáveis padrão: ${extrairMensagemErro(error)}`);
   }
 
   return {

@@ -4,7 +4,7 @@ import type {
   ResponsavelInsertInput,
   ResponsavelUpdateInput,
 } from '../types/responsaveis.types';
-import { buildSeedResponsaveis } from '../utils/seedResponsaveis';
+import type { MembroDoHousehold } from '@/core/household/household.service';
 
 export async function listarResponsaveisAtivos(householdId: string): Promise<Responsavel[]> {
   const { data, error } = await supabase
@@ -18,21 +18,43 @@ export async function listarResponsaveisAtivos(householdId: string): Promise<Res
   return (data ?? []) as Responsavel[];
 }
 
-export async function garantirResponsaveisPadrao(householdId: string): Promise<void> {
-  const { data, error } = await supabase
-    .from('responsaveis')
-    .select('nome')
-    .eq('household_id', householdId);
+export async function garantirResponsaveisDosMembros(
+  householdId: string,
+  membros: Array<Pick<MembroDoHousehold, 'user_id' | 'nome'>>,
+): Promise<void> {
+  for (const membro of membros) {
+    const { data: existente, error } = await supabase
+      .from('responsaveis')
+      .select('id, nome, user_id')
+      .eq('household_id', householdId)
+      .eq('user_id', membro.user_id)
+      .maybeSingle();
+    if (error) throw error;
+    if (existente) {
+      if (existente.nome !== membro.nome) {
+        const { error: updateError } = await supabase.from('responsaveis').update({ nome: membro.nome }).eq('id', existente.id);
+        if (updateError) throw updateError;
+      }
+      continue;
+    }
 
-  if (error) throw error;
+    const { data: responsavelSemVinculo, error: buscaError } = await supabase
+      .from('responsaveis')
+      .select('id')
+      .eq('household_id', householdId)
+      .eq('nome', membro.nome)
+      .is('user_id', null)
+      .maybeSingle();
+    if (buscaError) throw buscaError;
+    if (responsavelSemVinculo) {
+      const { error: vinculoError } = await supabase.from('responsaveis').update({ user_id: membro.user_id, ativo: true }).eq('id', responsavelSemVinculo.id);
+      if (vinculoError) throw vinculoError;
+      continue;
+    }
 
-  const existing = new Set((data ?? []).map((r) => r.nome));
-  const missing = buildSeedResponsaveis(householdId).filter((r) => !existing.has(r.nome));
-
-  if (missing.length === 0) return;
-
-  const { error: insertError } = await supabase.from('responsaveis').insert(missing);
-  if (insertError) throw insertError;
+    const { error: insertError } = await supabase.from('responsaveis').insert({ household_id: householdId, nome: membro.nome, user_id: membro.user_id, ativo: true });
+    if (insertError && insertError.code !== '23505') throw insertError;
+  }
 }
 
 export async function criarResponsavel(

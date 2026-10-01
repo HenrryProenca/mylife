@@ -35,7 +35,7 @@ Antes de qualquer coisa, leia os documentos oficiais na raiz:
 Módulo oficial ativo:
 
 - **Financeiro** (`/financeiro`) — livro-caixa com dashboard, categorias,
-  transações, parcelamento e import/export CSV
+  lançamentos, parcelamento e exportação CSV compatível com Excel
 
 Módulo experimental (fora do escopo oficial):
 
@@ -79,11 +79,12 @@ Módulos futuros (registrados como comentário em `src/app/modules.ts`):
 3. Configure o banco:
 
    No Supabase, abra SQL Editor → cole o conteúdo de
-   `supabase/schema.sql` → Run.
+   `supabase/schema.sql` → Run. Para um banco já configurado, aplique no
+   SQL Editor, nesta ordem, `supabase/permissoes-household.sql`,
+   `supabase/remover-membro-household.sql` e
+   `supabase/financeiro-responsaveis-membros.sql`.
 
-   Para atualizar um banco já configurado, aplique também, nesta ordem,
-   `supabase/permissoes-household.sql` e
-   `supabase/remover-membro-household.sql`. O usuário pode usar o espaço
+   O usuário pode usar o espaço
    pessoal sem entrar em uma família; em famílias, owner/admin gerenciam
    membros, membro tem leitura/escrita e visualizador tem somente leitura.
 

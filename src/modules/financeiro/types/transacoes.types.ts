@@ -2,7 +2,7 @@ import type { CategoriaNatureza, CategoriaTipo } from './categorias.types';
 
 export type TransacaoStatus = 'pendente' | 'concluida';
 
-export type LancamentoTipo = 'receita' | 'fixo' | 'variavel' | 'cartao' | 'investimento';
+export type LancamentoTipo = 'receita' | 'despesa' | 'investimento';
 
 export type FormaPagamento =
   | 'pix'
@@ -36,6 +36,7 @@ export interface Transacao {
 
 export interface TransacaoFormValues {
   tipo: LancamentoTipo;
+  natureza: 'fixo' | 'variavel';
   valor: number;
   data: string;
   descricao: string;
@@ -47,6 +48,7 @@ export interface TransacaoFormValues {
   status: TransacaoStatus;
   parcela_atual: number | null;
   parcela_total: number | null;
+  tipo_no_cartao: 'avista' | 'parcelado' | null;
 }
 
 export interface TransacaoInsertInput extends TransacaoFormValues {

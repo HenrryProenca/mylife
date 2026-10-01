@@ -81,7 +81,7 @@
       - `services/`
         - `categorias.service.ts`
         - `contas.service.ts`
-        - `responsaveis.service.ts`
+      - `responsaveis.service.ts`
         - `transacoes.service.ts`
       - `types/`
         - `categorias.types.ts`
@@ -90,7 +90,6 @@
         - `transacoes.types.ts`
       - `utils/`
         - `seedCategorias.ts`
-        - `seedResponsaveis.ts`
     - `lista-mercado/` (experimental)
       - `pages/`
         - `ListaMercadoPage.tsx`
@@ -130,6 +129,7 @@
 | `.gitignore` | node_modules, dist, `.env*`, editor, Netlify |
 | `CONTEXT.md` | Legado — mantido como referência histórica com aviso no topo |
 | `supabase/schema.sql` | Fonte de verdade do banco |
+| `supabase/financeiro-responsaveis-membros.sql` | Migração do vínculo de responsáveis com membros |
 
 ## 4. Rotas
 
@@ -198,7 +198,7 @@ confirmação na própria página (não redireciona).
 2. Insert em `households`
 3. Insert em `household_membros` como `owner`
 4. Seed de categorias (`buildSeedCategorias`)
-5. Seed de responsáveis (`buildSeedResponsaveis`)
+5. Trigger de membership cria responsável ligado ao membro
 
 Rollback em caso de falha nos seeds. Navega para `/`.
 
@@ -227,11 +227,13 @@ toda mutação é via RPC.
 
 ### Lançamento simples
 `DashboardPage` → `LancamentoForm` → `criarTransacao` → insert em
-`transacoes` com `tipo_no_cartao = null` (não-cartão) ou `'avista'`
-(cartão à vista).
+`transacoes`; tipo de tela é receita/despesa/investimento (investimento é
+gravado como despesa com categoria de natureza `investimento`). Despesas
+usam natureza da categoria `fixo` ou `variavel`. Pagamento em cartão de
+crédito grava `tipo_no_cartao = 'avista'` ou `'parcelado'`.
 
 ### Lançamento parcelado
-`LancamentoForm` com tipo `cartao` e `parcela_total > 1` →
+`LancamentoForm` com cartão de crédito parcelado e `parcela_total > 1` →
 `criarTransacao`:
 1. Insert em `parcelamentos` (`valor_total`, `valor_parcela`,
    `total_parcelas`, `data_primeira_parcela`)
@@ -240,13 +242,19 @@ toda mutação é via RPC.
 3. Cada linha tem `parcelamento_id`, `parcela_atual`,
    `parcela_total`, `tipo_no_cartao = 'parcelado'`, valor por parcela
 
-### Import/Export CSV
-Ambos dentro de `DashboardPage`:
-- Import: espera colunas `Data, Descrição, Valor` (mínimo 3 colunas).
-  Usa a primeira categoria de despesa existente, tipo `variavel`, forma
-  `pix`, status `concluida`, observação `Importado via CSV`.
-- Export: cabeçalho `Data, Descrição, Categoria, Tipo, Forma de
-  pagamento, Instituição, Responsável, Parcela, Valor`.
+### Exportação
+`DashboardPage` exporta os resultados filtrados da tabela “Lançamentos
+detalhados” em CSV UTF-8 com BOM, compatível com Excel. Importação de
+planilhas não faz parte da tela.
+
+### Dashboard financeiro
+- Gráfico fixo: “Entrou vs Saiu”. Dois gráficos configuráveis (“Despesa por”
+  e “Receita por”) agrupam por categoria, instituição, forma de pagamento,
+  descrição ou responsável.
+- A tabela “Lançamentos detalhados” exibe os campos de lançamento e filtra
+  por texto, tipo, natureza, categoria, instituição, pagamento, tipo de
+  compra no cartão, responsável, status, datas, valores e parcelamento.
+- Editar abre modal com formulário; excluir pede confirmação em modal.
 
 ### Edição de perfil
 `/perfil` → `PerfilPage` → `update` direto em `perfis` (exceção
@@ -274,6 +282,8 @@ documentada). Email não é editável.
 - `aceitar_convite(uuid)` — RPC de aceite
 - `cancelar_convite(uuid)` — RPC de cancelamento (usada também para
   recusar)
+- `sync_responsavel_household_member()` — cria/atualiza responsável do membro
+- `sync_responsavel_perfil_nome()` — sincroniza o nome exibido do responsável
 
 ### RLS
 - Todas as tabelas de negócio têm policy baseada em
@@ -283,6 +293,7 @@ documentada). Email não é editável.
 - Espaço pessoal é isolado por `household_id` e não aceita convites
 - Owner/admin podem alterar papel ou remover membros
 - Atualizações SQL: `permissoes-household.sql` e `remover-membro-household.sql`
+- `financeiro-responsaveis-membros.sql` vincula responsáveis a memberships
 - `household_convites` bloqueia `update` e `delete` diretos (`using false`)
 - `perfis_select` permite ver o próprio perfil ou perfis de membros do
   mesmo household
@@ -354,19 +365,21 @@ Pontos ainda em aberto:
   - `RedefinirSenhaPage.tsx` — `exchangeCodeForSession`, `getSession`
   - `PerfilPage.tsx` — `update` em `perfis`
 
-### Tipos derivados em runtime
-- `LancamentoTipo` (5 valores: `receita`, `fixo`, `variavel`,
-  `cartao`, `investimento`) é derivado pela função `transactionType()`
-  no `DashboardPage`.
-- O banco só conhece `receita | despesa`. `databaseType()` no service
-  converte.
+### Tipos de lançamento
+- `LancamentoTipo`: `receita`, `despesa`, `investimento`.
+- O banco guarda `receita | despesa`; `databaseType()` converte
+  investimento para despesa e `transactionType()` distingue investimento
+  pela natureza da categoria.
+- Natureza fixa/variável fica na categoria da despesa; a natureza
+  investimento identifica lançamentos de investimento.
 
 ### Regras de negócio em componentes / services
 - "Receita só usa natureza `outro`" — vive em `CategoriasManager`
   (tab Receitas mapeia para `natureza = outro`).
-- "Cartão é natureza `variavel`" — vive no `CategoriasManager`.
-- "Parcelado = tipo `cartao` + `parcela_total > 1`" — vive em
-  `transacoes.service`.
+- Categorias organizam receita, despesa (natureza fixa/variável) e
+  investimento.
+- Parcelamento depende de forma de pagamento cartão de crédito,
+  `tipo_no_cartao = 'parcelado'` e `parcela_total > 1`.
 
 ### Constantes
 - `NO_ACTIVE_HOUSEHOLD_ID` (`'__sem_familia__'`) — em
@@ -457,9 +470,8 @@ dessas faixas.
 
 ### Domínio
 - `contas` é read-only no frontend (sem CRUD, sem formulário).
-- `responsavel_id` existe em `transacoes` e tem campo no
-  `LancamentoForm`, mas a tabela `responsaveis` é populada por seed
-  (`buildSeedResponsaveis`); CRUD ainda não existe na UI.
+- `responsaveis` é sincronizada com os membros via trigger e com
+  `financeiro-responsaveis-membros.sql` para bancos existentes.
 - `atualizarStatusTransacao` exposto pelo `transacoes.service` mas não
   consumido por nenhum hook.
 - `criarHousehold` é alias de `createHousehold` no `household.service`
@@ -468,10 +480,10 @@ dessas faixas.
 - `zustand` nas dependências, sem uso identificado.
 
 ### Modelo de dados
-- `transacoes.tipo` no banco é `receita | despesa`; o app expõe 5
-  "tipos" derivados em runtime.
-- `CategoriasManager` mapeia a tab "Cartão" para `natureza = variavel`
-  (não existe `natureza = cartao` no banco).
+- `transacoes.tipo` no banco é `receita | despesa`; a UI oferece receita,
+  despesa e investimento (investimento é distinguido por natureza).
+- Forma de pagamento e natureza são campos separados; cartão não é tipo
+  nem natureza do lançamento.
 
 ## 15. Arquivos não vistos neste levantamento
 

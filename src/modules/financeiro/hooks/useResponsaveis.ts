@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useHousehold } from '@/core/household/useHousehold';
+import { useMembros } from '@/core/household/hooks/useMembros';
 import { podeEscreverNoHousehold } from '@/core/household/permissoes';
 import {
   atualizarResponsavel as atualizarResponsavelService,
   criarResponsavel as criarResponsavelService,
   excluirResponsavel as excluirResponsavelService,
-  garantirResponsaveisPadrao,
+  garantirResponsaveisDosMembros,
   listarResponsaveisAtivos,
 } from '../services/responsaveis.service';
 import type {
@@ -18,18 +19,22 @@ export const responsaveisQueryKey = ['responsaveis'];
 
 export function useResponsaveis() {
   const { activeHousehold } = useHousehold();
+  const { membros } = useMembros();
   const queryClient = useQueryClient();
   const householdId = activeHousehold?.id ?? null;
   const podeEscrever = podeEscreverNoHousehold(activeHousehold?.membership.papel);
 
   const query = useQuery({
-    queryKey: [...responsaveisQueryKey, householdId],
+    queryKey: [...responsaveisQueryKey, householdId, membros.map((membro) => membro.user_id).join(',')],
     enabled: Boolean(householdId),
     queryFn: async () => {
       if (!householdId) return [];
-      if (podeEscrever) await garantirResponsaveisPadrao(householdId);
-      return listarResponsaveisAtivos(householdId);
+      if (podeEscrever) await garantirResponsaveisDosMembros(householdId, membros);
+      const responsaveis = await listarResponsaveisAtivos(householdId);
+      const membrosAtivos = new Set(membros.map((membro) => membro.user_id));
+      return responsaveis.filter((responsavel) => responsavel.user_id && membrosAtivos.has(responsavel.user_id));
     },
+    refetchInterval: false,
   });
 
   const createMutation = useMutation({

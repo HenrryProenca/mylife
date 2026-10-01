@@ -32,7 +32,9 @@ function databaseType(tipo: LancamentoTipo) {
 }
 
 function isParcelado(values: TransacaoFormValues) {
-  return values.tipo === 'cartao' && (values.parcela_total ?? 0) > 1;
+  return values.forma_pagamento === 'cartao_credito'
+    && values.tipo_no_cartao === 'parcelado'
+    && (values.parcela_total ?? 0) > 1;
 }
 
 function transactionPayload(
@@ -55,7 +57,7 @@ function transactionPayload(
     conta_id: values.conta_id || null,
     responsavel_id: values.responsavel_id || null,
     forma_pagamento: values.forma_pagamento,
-    tipo_no_cartao: values.tipo === 'cartao'
+    tipo_no_cartao: values.forma_pagamento === 'cartao_credito'
       ? (isParcelado(values) ? 'parcelado' : 'avista')
       : null,
     parcelamento_id: parcelamentoId,
@@ -145,6 +147,9 @@ export async function atualizarTransacao(
       conta_id: values.conta_id || null,
       responsavel_id: values.responsavel_id || null,
       forma_pagamento: values.forma_pagamento,
+      tipo_no_cartao: values.forma_pagamento === 'cartao_credito' ? values.tipo_no_cartao ?? 'avista' : null,
+      parcela_atual: values.forma_pagamento === 'cartao_credito' && values.tipo_no_cartao === 'parcelado' ? values.parcela_atual ?? 1 : null,
+      parcela_total: values.forma_pagamento === 'cartao_credito' && values.tipo_no_cartao === 'parcelado' ? values.parcela_total : null,
       status: values.status,
     })
     .eq('id', transacaoId)

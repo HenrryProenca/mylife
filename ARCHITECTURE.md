@@ -188,6 +188,10 @@ Funções e triggers definidos em `supabase/schema.sql`:
 - `set_updated_at()` — trigger em todas as tabelas com `updated_at`
 - `handle_new_user()` — trigger em `auth.users` que cria perfil,
   household pessoal (`<PrimeiroNome> (pessoal)`) e membership owner
+- `sync_responsavel_household_member()` — mantém um responsável associado
+  a cada membro em cada household
+- `sync_responsavel_perfil_nome()` — mantém o nome do responsável igual ao
+  perfil do membro
 - `is_household_member(uuid)` — usada nas policies de RLS
 - `aceitar_convite(uuid)` — RPC que aceita convite por token
 - `cancelar_convite(uuid)` — RPC que cancela convite pendente
@@ -240,11 +244,24 @@ restrição também é aplicada no banco por RLS/RPC.
 2. Insert em `households`
 3. Insert em `household_membros` com papel `owner`
 4. Seed de categorias padrão (`buildSeedCategorias`)
-5. Seed de responsáveis padrão (`buildSeedResponsaveis`)
+5. O trigger de membership cria o responsável ligado ao usuário
 
-Em caso de falha nos seeds, faz rollback (deleta responsáveis,
-categorias, membership e household, na ordem inversa). O nome sugerido
-é `Família <PrimeiroNome>`.
+Em caso de falha nos seeds, faz rollback (deleta categorias, membership e
+household, na ordem inversa). O nome sugerido é `Família <PrimeiroNome>`.
+
+### Responsáveis e lançamentos
+
+Cada membership tem um responsável vinculado por `user_id`; o nome é
+sincronizado com `perfis.nome`. No espaço pessoal, o responsável padrão é
+automaticamente o usuário autenticado. O banco armazena `transacoes.tipo`
+como `receita` ou `despesa`; investimento é distinguido pela natureza da
+categoria. Despesas usam natureza `fixo` ou `variavel`. Pagamento por
+cartão de crédito grava `tipo_no_cartao` como `avista` ou `parcelado`.
+
+O dashboard mantém “Entrou vs Saiu” e oferece dois gráficos configuráveis
+por categoria, instituição, forma de pagamento, descrição ou responsável.
+Exportação CSV compatível com Excel fica na tabela “Lançamentos
+detalhados”; não há importação de planilhas.
 
 ### Convites
 
@@ -271,7 +288,8 @@ muda, as queries são refeitas automaticamente.
 
 ### Parcelamento
 
-Lançamento parcelado (tipo `cartao` e `parcela_total > 1`) cria 1 linha
+Lançamento parcelado (cartão de crédito, tipo no cartão `parcelado` e
+`parcela_total > 1`) cria 1 linha
 em `parcelamentos` + N linhas em `transacoes` (uma por mês, via
 `addMonths` de date-fns, a partir da data da primeira parcela). Cada
 parcela é independente e tem status próprio. O valor de cada parcela

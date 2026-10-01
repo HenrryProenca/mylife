@@ -10,8 +10,9 @@ Fase: 5 — Consolidação do módulo Financeiro
 Última atualização: 2026-10-01
 
 O módulo Financeiro está funcional: dashboard, categorias (via modal),
-transações, parcelamento, contas como etiqueta, responsáveis (com seed)
-e import/export CSV funcionam ponta a ponta.
+lançamentos classificados como receita, despesa ou investimento, natureza
+fixa/variável, cartão à vista/parcelado, responsáveis ligados aos membros,
+gráficos configuráveis, tabela detalhada com filtros e exportação CSV.
 
 A base de autenticação, household e perfil está estável. Gestão de
 família (convites + papéis + membros) também foi implementada como parte
@@ -84,10 +85,10 @@ Arquivos que não existem mais (não são pendência):
 - Remover coluna `contas.saldo_inicial` — decidido em MEMORY. Se a
   coluna ainda existir no banco, remover via migration. Pendente de
   confirmação no Supabase remoto.
-- `responsavel_id` em transações — resolvido: existe campo no
-  `LancamentoForm`; a tabela `responsaveis` é populada por seed.
-  Falta CRUD de responsáveis na UI (ver fase 7).
-- `tabela responsaveis` — resolvido: mantida e populada por seed.
+- `responsavel_id` em transações — responsável associado aos membros via
+  trigger de membership; não há CRUD independente de responsáveis.
+- `tabela responsaveis` — mantida como referência dos membros e dos dados
+  históricos das transações.
 - Unificar telas de categorias — resolvido: só `CategoriasManager`
   (via Modal no dashboard).
 - Unificar UIs de edição de categoria — resolvido.
@@ -124,23 +125,22 @@ Arquivos que não existem mais (não são pendência):
 - Tratamento de "usuário já autenticado" em login/cadastro —
   concluído: ambas as páginas redirecionam via `useEffect` quando
   `isAuthenticated`.
-- Campo de responsável no `LancamentoForm` — resolvido: existe, com
-  "Sem responsável" como opção default.
+- Campo de responsável no `LancamentoForm` — vinculado aos membros; no
+  espaço pessoal seleciona automaticamente o usuário autenticado.
 
 ## 3. Imediatamente depois
 
 Assim que a consolidação fechar:
 
 - Fase 6 — CRUD de Contas (criar/editar/excluir conta no app)
-- Fase 7 — CRUD de Responsáveis (a tabela já existe e é populada por
-  seed; falta UI de gestão)
-- Fase 8 — Refinamento do dashboard (métricas adicionais)
-- Fase 9 — Importação CSV avançada (detecção de cabeçalho)
-- Fase 10 — Deploy Netlify
-- Fase 11 — Primeiro módulo novo (Rotina ou similar)
+- Fase 7 — Refinamento do dashboard (métricas adicionais)
+- Fase 8 — Deploy Netlify
+- Fase 9 — Primeiro módulo novo (Rotina ou similar)
 
 Gestão de família (convites + papéis + membros) foi antecipada e já
 está implementada dentro da Fase 5. Não é mais uma fase separada.
+Responsáveis agora acompanham memberships; importação CSV saiu do escopo,
+e exportação CSV/Excel permanece na tabela detalhada.
 
 Nenhuma das fases seguintes começa antes da anterior estar concluída e
 revisada.

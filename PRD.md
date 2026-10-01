@@ -44,15 +44,19 @@ A promessa em uma frase: "sua vida em ordem, num só lugar".
 
 - Registrar receitas e despesas com data, valor, categoria, conta de
   origem/destino, forma de pagamento, responsável e observação
-- Categorizar gastos por tipo (receita/despesa) e natureza (fixo,
-  variável, investimento, outro)
+- Classificar lançamentos como receita, despesa ou investimento. Despesas
+  têm natureza fixa ou variável
+- Associar responsáveis aos membros do espaço; no espaço pessoal, usar
+  automaticamente o usuário autenticado
 - Acompanhar o resultado do período (quanto entrou, quanto saiu, balanço,
   renda comprometida)
-- Visualizar gastos por categoria, tipo, forma de pagamento e instituição
+- Comparar valores de entrada e saída e escolher como agrupar gráficos de
+  receita e despesa (categoria, instituição, forma de pagamento, descrição
+  ou responsável)
 - Controlar compras parceladas (cada parcela vira uma transação mensal
   separada, com status próprio)
 - Marcar cada transação como pendente ou concluída
-- Importar e exportar transações em CSV
+- Exportar lançamentos detalhados em CSV compatível com Excel
 - Gerenciar categorias sem sair do dashboard (via modal)
 
 ### Gestão de família (transversal)

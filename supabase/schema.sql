@@ -101,11 +101,14 @@ create table if not exists public.responsaveis (
   user_id        uuid references public.perfis(id) on delete set null,
   ativo          boolean not null default true,
   created_at     timestamptz not null default now(),
-  updated_at     timestamptz not null default now(),
-  unique (household_id, nome)
+  updated_at     timestamptz not null default now()
 );
 
-comment on table public.responsaveis is 'Responsáveis por movimentações (pode ou não ser um usuário).';
+create unique index if not exists responsaveis_household_user_unique
+  on public.responsaveis (household_id, user_id)
+  where user_id is not null;
+
+comment on table public.responsaveis is 'Responsáveis das movimentações, associados aos membros do household e mantidos para preservar o histórico.';
 
 -- ============================================================================
 -- 7. PARCELAMENTOS
@@ -316,6 +319,48 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+create or replace function public.sync_responsavel_household_member()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.responsaveis (household_id, user_id, nome, ativo)
+  select new.household_id, new.user_id, coalesce(nullif(trim(p.nome), ''), 'Membro'), true
+  from public.perfis p
+  where p.id = new.user_id
+  on conflict (household_id, user_id) where user_id is not null
+  do update set nome = excluded.nome, ativo = true;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_household_member_responsavel on public.household_membros;
+create trigger trg_household_member_responsavel
+  after insert or update on public.household_membros
+  for each row execute function public.sync_responsavel_household_member();
+
+create or replace function public.sync_responsavel_perfil_nome()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  update public.responsaveis
+  set nome = coalesce(nullif(trim(new.nome), ''), 'Membro'), ativo = true
+  where user_id = new.id;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_perfil_nome_responsavel on public.perfis;
+create trigger trg_perfil_nome_responsavel
+  after update of nome on public.perfis
+  for each row when (old.nome is distinct from new.nome)
+  execute function public.sync_responsavel_perfil_nome();
 
 -- ============================================================================
 -- FUNÇÃO AUXILIAR PARA RLS
