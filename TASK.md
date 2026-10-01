@@ -1,24 +1,25 @@
-# TASK — O que está sendo feito agora
+﻿# TASK — O que está sendo feito agora
 
 > Documento oficial e vivo. Descreve em que ponto do roadmap estamos, o
 > que está sendo feito no momento e o que vem imediatamente depois. Este
 > arquivo é atualizado a cada mudança de fase.
-
----
 
 ## 1. Estado atual
 
 Fase: 5 — Consolidação do módulo Financeiro
 Última atualização: 2026-10-01
 
-O módulo Financeiro está funcional. Tem dashboard, categorias, transações,
-parcelamento, contas como etiqueta e import/export CSV. Os fluxos
-principais funcionam ponta a ponta.
+O módulo Financeiro está funcional: dashboard, categorias (via modal),
+transações, parcelamento, contas como etiqueta, responsáveis (com seed)
+e import/export CSV funcionam ponta a ponta.
 
-O que resta nesta fase é consolidação: alinhar a paleta visual em todos os
-componentes, unificar decisões duplicadas, remover código morto e ajustar
-configurações. Não é implementação de funcionalidade nova — é fechamento
-do que já existe.
+A base de autenticação, household e perfil está estável. Gestão de
+família (convites + papéis + membros) também foi implementada como parte
+desta fase. A paleta visual está migrada na quase totalidade dos
+componentes.
+
+O que resta nesta fase é consolidação: decidir sobre código morto,
+fechar decisões em aberto e alinhar os documentos oficiais.
 
 Antes desta fase, foram concluídas:
 
@@ -28,120 +29,132 @@ Antes desta fase, foram concluídas:
 - Fase 4 — Household / Família
 - Fase 5 (parcial) — Módulo Financeiro funcionando
 
----
-
 ## 2. Em andamento agora
 
-Consolidação do módulo Financeiro. As frentes de trabalho, em ordem de
+Consolidação do módulo Financeiro. Frentes de trabalho, em ordem de
 prioridade:
 
 ### 2.1 Documentação oficial
-- Escrever PRD.md          [concluído]
-- Escrever ARCHITECTURE.md [concluído]
-- Escrever RULES.md        [concluído]
-- Escrever DESIGN.md       [concluído]
-- Escrever TASK.md         [concluído]
-- Escrever MEMORY.md       [pendente]
+
+- Escrever PRD.md          — concluído
+- Escrever ARCHITECTURE.md — concluído
+- Escrever RULES.md        — concluído
+- Escrever DESIGN.md       — concluído
+- Escrever TASK.md         — concluído
+- Escrever MEMORY.md       — concluído
+- Atualizar MEMORY.md com convites, aceitar por RPC no banco e Home
+  medindo tempo via localStorage — pendente
 
 ### 2.2 Correções de configuração
-- Ajustar `.nvmrc` para Node 22 (Supabase 2.117.1 exige)
-- Atualizar `index.html` (favicon → símbolo PNG; theme-color → #F7F5F0)
-- Atualizar `CONTEXT.md` (paleta antiga nas seções 7, 8, 10)
-- Atualizar `.github/copilot-instructions.md` (mesma desatualização)
-- Atualizar `README.md` (está truncado)
+
+- Ajustar `.nvmrc` para Node 22 — concluído (já está em 22)
+- Atualizar `index.html` (favicon → símbolo PNG; theme-color →
+  `#F7F5F0`) — concluído
+- Atualizar `CONTEXT.md` — mantido como legado, com aviso no topo.
+  Não é mais pendência ativa.
+- Atualizar `.github/copilot-instructions.md` — pendente (arquivo não
+  foi revisado nesta rodada)
+- Atualizar `README.md` — concluído
 
 ### 2.3 Correções de paleta visual
-Migrar todos os arquivos que ainda usam tokens antigos (`navy-*`,
-`content-*`, `brand-400`, `text-h4`) para a paleta oficial:
 
-- `main.tsx` — Toaster
-- `ProtectedRoute.tsx` — spinner
-- `HouseholdGuard.tsx` — spinner
-- `HomePage.tsx` — Recharts + textos
-- `DashboardPage.tsx` — Recharts + uma classe
-- `CategoriasPage.tsx` — abas
-- `CategoriaForm.tsx`
-- `CategoriaItem.tsx`
-- `CategoriaList.tsx`
-- `CategoriasManager.tsx`
-- `LancamentoForm.tsx`
-- `Modal.tsx`
-- `ConfirmDialog.tsx`
-- `EmptyState.tsx`
-- `Badge.tsx`
+Migrar todos os arquivos que ainda usavam tokens antigos (`navy-*`,
+`content-*`, `brand-400` como texto, `text-h4`) para a paleta oficial.
+Status:
 
-Também: substituir hex hardcoded em `chartColor()`, nos gráficos do
-Recharts e nos fallbacks por tokens da paleta oficial.
+- `main.tsx` — concluído (`theme="light"` com tokens)
+- `ProtectedRoute.tsx` — concluído
+- `HouseholdGuard.tsx` — concluído
+- `HomePage.tsx` — concluído
+- `DashboardPage.tsx` — concluído
+- `CategoriasManager.tsx` — concluído
+- `LancamentoForm.tsx` — concluído
+- `Modal.tsx` — concluído
+- `ConfirmDialog.tsx` — concluído
+- `EmptyState.tsx` — concluído
+- `Badge.tsx` — concluído
+
+Arquivos que não existem mais (não são pendência):
+
+- `CategoriasPage.tsx`, `CategoriaForm.tsx`, `CategoriaItem.tsx`,
+  `CategoriaList.tsx`
 
 ### 2.4 Correções de domínio
-- Remover coluna `contas.saldo_inicial` no Supabase
-- Decidir sobre `responsavel_id` em transações (manter sem UI ou
-  implementar campo)
-- Decidir sobre a tabela `responsaveis` (manter reservada ou remover)
-- Unificar as duas telas de categorias (`CategoriasPage` + `CategoriasManager`)
-- Unificar as duas UIs de edição de categoria (`CategoriaForm` + inline)
-- Unificar as duas funções de insert (`criarTransacao` + `criarLancamento`)
-- Unificar as duas chamadas ao seed (createHousehold + garantirCategoriasPadrao)
-- Remover wrapper `createHouseholdService` redundante no HouseholdProvider
-- Decidir sobre `atualizarStatus` do useTransacoes (usar ou remover)
-- Decidir sobre `CredenciaisLogin` e `CredenciaisCadastro` (usar ou remover)
-- Decidir sobre variantes não usadas do Badge (`warning`, `danger`)
+
+- Remover coluna `contas.saldo_inicial` — decidido em MEMORY. Se a
+  coluna ainda existir no banco, remover via migration. Pendente de
+  confirmação no Supabase remoto.
+- `responsavel_id` em transações — resolvido: existe campo no
+  `LancamentoForm`; a tabela `responsaveis` é populada por seed.
+  Falta CRUD de responsáveis na UI (ver fase 7).
+- `tabela responsaveis` — resolvido: mantida e populada por seed.
+- Unificar telas de categorias — resolvido: só `CategoriasManager`
+  (via Modal no dashboard).
+- Unificar UIs de edição de categoria — resolvido.
+- Unificar funções de insert — resolvido: só `criarTransacao`.
+- Unificar chamadas ao seed — resolvido: `createHousehold` faz os seeds
+  e o service de categorias/responsáveis garante seeds ao listar.
+- Remover wrapper `createHouseholdService` redundante — pendente: o
+  `household.service.ts` ainda expõe `criarHousehold` como alias de
+  `createHousehold`, sem uso.
+- `atualizarStatusTransacao` — pendente: decidir entre usar ou remover
+  do service (não é consumido por nenhum hook).
+- `CredenciaisLogin`/`CredenciaisCadastro` — resolvido: não existem
+  mais em `auth/types.ts`.
+- Variantes do `Badge` (`warning`, `danger`) — pendente: decidir entre
+  implementar ou remover da documentação (DESIGN.md já registra como
+  planejadas).
 
 ### 2.5 Correções de componentes
-- `Modal`: adicionar focus trap, ESC para fechar, clicar overlay para
-  fechar, corrigir `id="modal-title"` fixo
-- `ConfirmDialog`: remover duplicação do `description`
-- `CategoriaItem`: parar de usar `.slice(0, 2)` do ícone como texto
-- `EmptyState`: substituir o bullet por ícone Lucide
-- `Badge`: decidir se remove variantes não usadas ou as documenta
+
+- `Modal` — concluído: tem ESC, focus trap, fechamento por overlay e
+  devolve foco. `id="modal-title"` continua fixo — se dois modais forem
+  abertos simultaneamente, colidem. Não é problema hoje, mas fica
+  registrado.
+- `ConfirmDialog` — concluído: não duplica mais a `description`.
+- `CategoriaItem` — resolvido: o arquivo não existe mais.
+- `EmptyState` — concluído: usa ícone Lucide (`Inbox`).
+- `Badge` — pendente: ver 2.4.
 
 ### 2.6 Correções de fluxo
-- Decidir se `/cadastro` deve logar direto ou continuar redirecionando
-  para `/login`
-- Decidir se `/redefinir-senha` deve voltar para `/` ou `/financeiro`
-- Adicionar tratamento de "usuário já autenticado" nas páginas de login
-  e cadastro
-- Decidir sobre o campo de responsável no `LancamentoForm`
 
----
+- Cadastro logar direto — resolvido: tenta `signUp` + `loginUsuario`
+  automático, com fallback para `/login` se o email exigir confirmação.
+- Redefinição de senha — resolvido: navega para `/` após salvar.
+- Tratamento de "usuário já autenticado" em login/cadastro —
+  concluído: ambas as páginas redirecionam via `useEffect` quando
+  `isAuthenticated`.
+- Campo de responsável no `LancamentoForm` — resolvido: existe, com
+  "Sem responsável" como opção default.
 
 ## 3. Imediatamente depois
-
-Por solicitação do usuário, a gestão de família foi antecipada e entregue:
-convites com papel, alteração de permissões, remoção de membros e uso de
-espaço pessoal sem associação obrigatória a família. A consolidação do
-Financeiro continua sendo a fase principal do roadmap.
 
 Assim que a consolidação fechar:
 
 - Fase 6 — CRUD de Contas (criar/editar/excluir conta no app)
-- Fase 7 — CRUD de Responsáveis (se decidido manter a tabela)
+- Fase 7 — CRUD de Responsáveis (a tabela já existe e é populada por
+  seed; falta UI de gestão)
 - Fase 8 — Refinamento do dashboard (métricas adicionais)
 - Fase 9 — Importação CSV avançada (detecção de cabeçalho)
-- Fase 10 — Gestão de família (convites, papéis) [entregue antecipadamente]
-- Fase 11 — Deploy Netlify
-- Fase 12 — Primeiro módulo novo (Rotina ou similar)
+- Fase 10 — Deploy Netlify
+- Fase 11 — Primeiro módulo novo (Rotina ou similar)
 
-Nenhuma dessas fases começa antes da anterior estar concluída e revisada.
+Gestão de família (convites + papéis + membros) foi antecipada e já
+está implementada dentro da Fase 5. Não é mais uma fase separada.
 
----
+Nenhuma das fases seguintes começa antes da anterior estar concluída e
+revisada.
 
 ## 4. Regras de operação
 
 1. Uma frente por vez. Não abrir duas frentes de trabalho em paralelo.
-
 2. Antes de mexer em qualquer arquivo, conferir se ele está na lista de
    pendências e por qual motivo.
-
 3. Ao concluir uma frente, marcar como feito nesta lista e commit.
-
 4. Se surgir algo fora do planejado, não implementar — anotar aqui em
    "ideias futuras" e seguir o plano.
-
 5. Se algo da lista ficar obsoleto (porque mudamos de ideia), remover
    daqui e registrar no MEMORY.md com o motivo.
-
----
 
 ## 5. Ideias futuras (fora do plano atual)
 
@@ -153,8 +166,8 @@ Registradas aqui para não esquecer, mas sem compromisso de implementação:
 - Notificações de vencimento
 - Modo claro/escuro alternável
 - Suporte a múltiplas moedas
-
----
+- Módulo Lista de Mercado — hoje existe como experimental; decisão
+  pendente sobre virar módulo oficial ou ser removido
 
 ## 6. Documentos relacionados
 

@@ -1,10 +1,8 @@
-# PRD — Product Requirements Document
+﻿# PRD — Product Requirements Document
 
 > Documento oficial. Define o que é o produto, para quem, por quê e o que
 > ele faz em alto nível. Para detalhes técnicos, ver ARCHITECTURE.md. Para
 > regras de trabalho, ver RULES.md. Para roadmap, ver TASK.md.
-
----
 
 ## 1. O que é
 
@@ -15,8 +13,6 @@ estudos, saúde e o que mais fizer sentido para ela.
 O produto é construído em módulos. Cada módulo cobre uma área da vida.
 Todos os módulos compartilham a mesma base: autenticação, espaço de dados
 (pessoal ou familiar) e identidade visual.
-
----
 
 ## 2. Para quem
 
@@ -29,12 +25,6 @@ no dia a dia. A arquitetura foi preparada desde o início para múltiplos
 households, com isolamento de dados por RLS. O produto pode crescer para
 outras famílias sem refazer a base.
 
-O usuário pode organizar seus dados em um espaço pessoal sem criar ou
-selecionar uma família. Também pode participar de espaços familiares; os
-dados de cada espaço permanecem separados.
-
----
-
 ## 3. Por quê
 
 As pessoas organizam a própria vida em pedaços. Finanças numa planilha,
@@ -46,8 +36,6 @@ experiência coerente e uma base de dados única.
 
 A promessa em uma frase: "sua vida em ordem, num só lugar".
 
----
-
 ## 4. O que faz
 
 ### Módulo Financeiro (ativo)
@@ -55,18 +43,37 @@ A promessa em uma frase: "sua vida em ordem, num só lugar".
 É um livro-caixa inteligente. Permite:
 
 - Registrar receitas e despesas com data, valor, categoria, conta de
-  origem/destino, forma de pagamento e observação
+  origem/destino, forma de pagamento, responsável e observação
 - Categorizar gastos por tipo (receita/despesa) e natureza (fixo,
   variável, investimento, outro)
-- Acompanhar o resultado do período (quanto entrou, quanto saiu, balanço)
-- Visualizar gastos por categoria, responsável, forma de pagamento e
-  instituição
+- Acompanhar o resultado do período (quanto entrou, quanto saiu, balanço,
+  renda comprometida)
+- Visualizar gastos por categoria, tipo, forma de pagamento e instituição
 - Controlar compras parceladas (cada parcela vira uma transação mensal
-  separada)
+  separada, com status próprio)
 - Marcar cada transação como pendente ou concluída
 - Importar e exportar transações em CSV
-- Compartilhar dados em família com papéis de administração, leitura e
-  leitura/escrita; administradores gerenciam membros e permissões
+- Gerenciar categorias sem sair do dashboard (via modal)
+
+### Gestão de família (transversal)
+
+Compartilhada por todos os módulos:
+
+- Convites para outras pessoas entrarem numa família, por token UUID
+- Papéis de membro (`owner`, `admin`, `membro`)
+- Troca de família ativa e criação de novas famílias
+- Cada usuário tem um household pessoal criado automaticamente no
+  cadastro, no formato `<PrimeiroNome> (pessoal)`
+- Convites permitem escolher papel: admin (gestão), membro
+  (leitura/escrita) ou visualizador (somente leitura)
+- Owner/admin podem alterar papéis e remover membros
+- O espaço pessoal é isolado dos espaços familiares e não aceita convites
+
+### Home (transversal)
+
+A rota `/` mostra um resumo semanal do tempo de uso da plataforma,
+medido localmente por usuário neste dispositivo. Não é o dashboard
+financeiro.
 
 ### Módulos futuros (não implementados ainda)
 
@@ -80,7 +87,11 @@ A promessa em uma frase: "sua vida em ordem, num só lugar".
 Nenhum deles está sendo construído agora. Estão previstos na arquitetura
 para que possam ser adicionados sem quebrar o que existe.
 
----
+### Módulo experimental (fora do escopo oficial)
+
+- Lista de Mercado — existe em código como módulo experimental. Não é
+  considerado módulo oficial. Decisão sobre virar módulo oficial ou ser
+  removido está pendente.
 
 ## 5. O que NÃO faz
 
@@ -95,14 +106,12 @@ Esta seção é tão importante quanto a anterior. MyLife Financeiro NÃO:
 - Calcula rendimento por conta
 - Mostra extrato de conta
 
-A tabela contas representa apenas etiquetas de origem/destino do dinheiro
-(Nubank, Itaú, Carteira). Ela não tem saldo, não tem cálculo, não tem
-movimentação.
+A tabela `contas` representa apenas etiquetas de origem/destino do
+dinheiro (Nubank, Itaú, Carteira). Ela não tem saldo, não tem cálculo,
+não tem movimentação.
 
 Qualquer funcionalidade que puxe o produto para o lado de "gestor
 patrimonial" está fora de escopo.
-
----
 
 ## 6. Princípios
 
@@ -112,7 +121,7 @@ patrimonial" está fora de escopo.
 2. Modularidade real. Cada módulo vive isolado. Se um sai, os outros
    continuam funcionando.
 
-3. Segurança desde o primeiro dia. Isolamento de dados por espaço,
+3. Segurança desde o primeiro dia. Isolamento de dados por household,
    garantido no banco (RLS), não no frontend.
 
 4. Simplicidade no domínio. Não inventar complexidade onde não precisa.
@@ -121,26 +130,25 @@ patrimonial" está fora de escopo.
 5. Crescer sem reescrever. Novos módulos entram. Novas funcionalidades
    entram. A base permanece.
 
----
-
 ## 7. Como medimos sucesso
 
 Curto prazo (uso pessoal/familiar):
+
 - Wesley e Gabriella usam o Financeiro como fonte de verdade
 - Não voltam para a planilha antiga
 - Todas as transações do mês estão lançadas e categorizadas
 
 Médio prazo (produto utilizável por outras famílias):
+
 - Outra pessoa consegue criar conta, criar família e usar sem suporte
 - Dados de famílias diferentes nunca se misturam
 - Onboarding é autoexplicativo (sem manual)
 
 Longo prazo (suíte):
+
 - Mais de um módulo ativo e sendo usado
 - Interface coerente entre módulos
 - Um usuário novo entende o produto em menos de 5 minutos
-
----
 
 ## 8. Fora de escopo (agora)
 
@@ -156,8 +164,6 @@ Longo prazo (suíte):
 Esses itens fazem parte da visão futura do MyLife. Não fazem parte deste
 primeiro produto. A arquitetura deve permitir adicioná-los depois sem
 reescrever a base.
-
----
 
 ## 9. Documentos relacionados
 
