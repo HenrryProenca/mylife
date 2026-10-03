@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Home, Menu, User } from 'lucide-react';
+import { ChevronDown, ChevronRight, Home, Menu, User, X } from 'lucide-react';
 import { MYLIFE_MODULES } from './modules';
 import { useHousehold } from '@/core/household/useHousehold';
 
-export default function Sidebar() {
+export default function Sidebar({ open, onNavigate }: { open: boolean; onNavigate: () => void }) {
   const modules = MYLIFE_MODULES.filter((m) => m.enabled);
   const { activeHousehold, households } = useHousehold();
   const navigate = useNavigate();
@@ -16,12 +16,12 @@ export default function Sidebar() {
   const destinoFamilia = hasNoHousehold ? '/onboarding' : '/selecionar-familia';
 
   return (
-    <aside className="w-60 shrink-0 border-r border-canvas-300 bg-white flex flex-col">
-      <div className="px-5 py-5 border-b border-canvas-300">
+    <aside aria-label="Navegação principal" className={`fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-canvas-300 bg-white transition-transform duration-200 md:sticky md:top-0 md:z-20 md:h-screen md:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className="flex items-start justify-between border-b border-canvas-300 px-5 py-5">
         <button
           type="button"
           aria-label="Voltar para a home"
-          onClick={() => navigate('/')}
+          onClick={() => { navigate('/'); onNavigate(); }}
           className="group text-left"
         >
           <div className="font-display text-lg font-semibold tracking-tight">
@@ -32,13 +32,16 @@ export default function Sidebar() {
             Sua vida organizada
           </div>
         </button>
+        <button type="button" aria-label="Fechar menu" onClick={onNavigate} className="icon-button md:hidden">
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       <div className="px-3 pt-3">
         <button
           type="button"
-          onClick={() => navigate(destinoFamilia)}
-          className="w-full rounded-xl border border-canvas-300 bg-white p-3 text-left transition hover:border-brand-400 hover:bg-canvas-200"
+          onClick={() => { navigate(destinoFamilia); onNavigate(); }}
+          className="w-full rounded-lg border border-canvas-300 bg-white p-3 text-left transition hover:border-canvas-400 hover:bg-canvas-100"
         >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -61,7 +64,7 @@ export default function Sidebar() {
         </button>
       </div>
 
-      <nav className="flex-1 p-3">
+      <nav id="primary-navigation" className="flex-1 p-3">
         <button
           type="button"
           onClick={() => setModulesOpen((open) => !open)}
@@ -83,6 +86,7 @@ export default function Sidebar() {
                 <NavLink
                   key={mod.id}
                   to={mod.path}
+                  onClick={onNavigate}
                   className={({ isActive }) =>
                     [
                       'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition',
