@@ -211,6 +211,11 @@ create table if not exists public.lista_mercado_itens (
   nome           text not null check (length(trim(nome)) > 0),
   quantidade     text,
   observacao     text,
+  unidade        text not null default 'un',
+  preco_referencia numeric(12,2) check (preco_referencia is null or preco_referencia >= 0),
+  preco_real      numeric(12,2) check (preco_real is null or preco_real >= 0),
+  data_compra     date,
+  template_id     uuid,
   status         text not null default 'pendente'
                  check (status in ('pendente','comprado')),
   created_at     timestamptz not null default now(),
@@ -218,6 +223,78 @@ create table if not exists public.lista_mercado_itens (
 );
 
 comment on table public.lista_mercado_itens is 'Itens da lista de mercado por household.';
+
+create table if not exists public.lista_mercado_compras (
+  id           uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  data_compra  date not null default current_date,
+  status       text not null default 'em_andamento' check (status in ('em_andamento', 'concluida')),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
+);
+
+create table if not exists public.lista_mercado_listas_fixas (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  nome text not null check (length(trim(nome)) > 0),
+  created_at timestamptz not null default now(),
+  unique (household_id, nome)
+);
+
+create table if not exists public.lista_mercado_listas_fixas_itens (
+  id uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  lista_id uuid not null references public.lista_mercado_listas_fixas(id) on delete cascade,
+  nome text not null check (length(trim(nome)) > 0),
+  quantidade text,
+  observacao text,
+  unidade text not null default 'un',
+  preco_referencia numeric(12,2) check (preco_referencia is null or preco_referencia >= 0),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.lista_mercado_compra_itens (
+  id             uuid primary key default gen_random_uuid(),
+  household_id   uuid not null references public.households(id) on delete cascade,
+  compra_id      uuid not null references public.lista_mercado_compras(id) on delete cascade,
+  item_base_id   uuid references public.lista_mercado_itens(id) on delete set null,
+  nome           text not null check (length(trim(nome)) > 0),
+  quantidade     numeric(12,3) not null default 1 check (quantidade > 0),
+  unidade        text not null default 'un',
+  preco_estimado numeric(12,2) check (preco_estimado is null or preco_estimado >= 0),
+  preco_real     numeric(12,2) check (preco_real is null or preco_real >= 0),
+  comprado       boolean not null default false,
+  created_at     timestamptz not null default now()
+);
+
+create table if not exists public.tarefas (
+  id           uuid primary key default gen_random_uuid(),
+  household_id uuid not null references public.households(id) on delete cascade,
+  titulo       text not null check (length(trim(titulo)) > 0),
+  descricao    text,
+  frequencia   text not null check (frequencia in ('diaria', 'semanal', 'mensal', 'anual')),
+  dia_semana   smallint check (dia_semana between 0 and 6),
+  dia_mes      smallint check (dia_mes between 1 and 31),
+  mes          smallint check (mes between 1 and 12),
+  ativa        boolean not null default true,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  constraint tarefas_recorrencia_check check (
+    (frequencia = 'diaria' and dia_semana is null and dia_mes is null and mes is null) or
+    (frequencia = 'semanal' and dia_semana is not null and dia_mes is null and mes is null) or
+    (frequencia = 'mensal' and dia_semana is null and dia_mes is not null and mes is null) or
+    (frequencia = 'anual' and dia_semana is null and dia_mes is not null and mes is not null)
+  )
+);
+
+create table if not exists public.tarefas_conclusoes (
+  id               uuid primary key default gen_random_uuid(),
+  household_id     uuid not null references public.households(id) on delete cascade,
+  tarefa_id        uuid not null references public.tarefas(id) on delete cascade,
+  data_referencia  date not null,
+  concluida_em     timestamptz not null default now(),
+  unique (tarefa_id, data_referencia)
+);
 
 -- ============================================================================
 -- ÍNDICES
@@ -238,6 +315,12 @@ create index if not exists idx_contas_household                 on public.contas
 create index if not exists idx_responsaveis_household           on public.responsaveis (household_id);
 create index if not exists idx_parcelamentos_household          on public.parcelamentos (household_id);
 create index if not exists idx_lista_mercado_household_status   on public.lista_mercado_itens (household_id, status);
+create index if not exists idx_lista_mercado_compras_household_data on public.lista_mercado_compras (household_id, data_compra desc);
+create index if not exists idx_lista_mercado_listas_fixas_household on public.lista_mercado_listas_fixas (household_id, nome);
+create index if not exists idx_lista_mercado_listas_fixas_itens_lista on public.lista_mercado_listas_fixas_itens (household_id, lista_id);
+create index if not exists idx_lista_mercado_compra_itens_compra on public.lista_mercado_compra_itens (household_id, compra_id);
+create index if not exists idx_tarefas_household_frequencia on public.tarefas (household_id, frequencia) where ativa;
+create index if not exists idx_tarefas_conclusoes_periodo on public.tarefas_conclusoes (household_id, data_referencia);
 
 create index if not exists idx_convites_household on public.household_convites (household_id, status);
 create index if not exists idx_convites_email     on public.household_convites (email_convidado, status);
@@ -264,7 +347,8 @@ begin
     select unnest(array[
       'perfis','households','household_membros','categorias',
       'contas','responsaveis','parcelamentos','transacoes',
-      'household_convites','lista_mercado_itens'
+      'household_convites','lista_mercado_itens',
+      'lista_mercado_compras','tarefas'
     ])
   loop
     execute format('drop trigger if exists trg_%I_updated_at on public.%I;', t, t);
@@ -632,6 +716,12 @@ alter table public.parcelamentos       enable row level security;
 alter table public.transacoes          enable row level security;
 alter table public.household_convites  enable row level security;
 alter table public.lista_mercado_itens enable row level security;
+alter table public.lista_mercado_compras enable row level security;
+alter table public.lista_mercado_listas_fixas enable row level security;
+alter table public.lista_mercado_listas_fixas_itens enable row level security;
+alter table public.lista_mercado_compra_itens enable row level security;
+alter table public.tarefas enable row level security;
+alter table public.tarefas_conclusoes enable row level security;
 
 -- ---------- PERFIS ----------
 drop policy if exists perfis_select on public.perfis;
@@ -851,6 +941,24 @@ create policy lista_mercado_itens_update on public.lista_mercado_itens for updat
   with check (public.pode_escrever_household(household_id));
 create policy lista_mercado_itens_delete on public.lista_mercado_itens for delete to authenticated
   using (public.pode_escrever_household(household_id));
+
+-- ---------- COMPRAS E TAREFAS ----------
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['lista_mercado_compras','lista_mercado_compra_itens','lista_mercado_listas_fixas','lista_mercado_listas_fixas_itens','tarefas','tarefas_conclusoes'] loop
+    execute format('drop policy if exists %I_select on public.%I', t, t);
+    execute format('drop policy if exists %I_insert on public.%I', t, t);
+    execute format('drop policy if exists %I_update on public.%I', t, t);
+    execute format('drop policy if exists %I_delete on public.%I', t, t);
+    execute format('create policy %I_select on public.%I for select to authenticated using (public.is_household_member(household_id))', t, t);
+    execute format('create policy %I_insert on public.%I for insert to authenticated with check (public.pode_escrever_household(household_id))', t, t);
+    execute format('create policy %I_update on public.%I for update to authenticated using (public.pode_escrever_household(household_id)) with check (public.pode_escrever_household(household_id))', t, t);
+    execute format('create policy %I_delete on public.%I for delete to authenticated using (public.pode_escrever_household(household_id))', t, t);
+  end loop;
+end;
+$$;
 
 -- ============================================================================
 -- GRANTS

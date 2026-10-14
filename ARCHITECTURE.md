@@ -17,6 +17,13 @@
 - Notificações: Sonner
 - Deploy: Netlify
 
+O módulo de mercado usa `lista_mercado_itens` como lista reutilizável,
+incluindo status e data de compra. `lista_mercado_compras` e
+`lista_mercado_compra_itens` guardam snapshots datados do histórico;
+`lista_mercado_listas_fixas` e `lista_mercado_listas_fixas_itens` guardam
+modelos reutilizáveis por household. A migração incremental fica em
+`supabase/modulos-lista-compras-tarefas.sql`.
+
 Sem backend próprio. Toda a lógica de dados e autorização mora no
 Postgres do Supabase, protegida por RLS.
 
@@ -26,7 +33,7 @@ Três camadas principais:
 
 - `app/` — shell da aplicação (layout, navegação, home)
 - `core/` — domínio transversal (auth, household, usuarios, activity)
-- `modules/` — um diretório por módulo do produto (financeiro, lista-mercado)
+- `modules/` — um diretório por módulo do produto (financeiro, lista-mercado, tarefas)
 
 Estrutura completa atual:
 
@@ -69,8 +76,16 @@ Estrutura completa atual:
       - `services/` — categorias, contas, responsaveis, transacoes
       - `types/` — categorias, contas, responsaveis, transacoes
       - `utils/` — seedCategorias, seedResponsaveis
-    - `lista-mercado/` (experimental)
+    - `lista-mercado/`
       - `pages/` — ListaMercadoPage
+      - `hooks/` — useListaMercado
+      - `services/` — listaMercado.service
+      - `types/` — listaMercado.types
+    - `tarefas/`
+      - `pages/` — TarefasPage
+      - `hooks/` — useTarefas
+      - `services/` — tarefas.service
+      - `types/` — tarefas.types
   - `components/`
     - `ui/` — Badge, ConfirmDialog, EmptyState, Modal
   - `lib/`

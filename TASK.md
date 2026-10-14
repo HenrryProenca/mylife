@@ -6,8 +6,8 @@
 
 ## 1. Estado atual
 
-Fase: 5 — Consolidação do módulo Financeiro
-Última atualização: 2026-10-01
+Fase: 6 — Módulos de Mercado e Tarefas
+Última atualização: 2026-10-14
 
 O módulo Financeiro está funcional: dashboard, categorias (via modal),
 lançamentos classificados como receita, despesa ou investimento, natureza
@@ -19,6 +19,12 @@ família (convites + papéis + membros) também foi implementada como parte
 desta fase. A paleta visual está migrada na quase totalidade dos
 componentes.
 
+Lista de Mercado mantém itens reutilizáveis com check e data, painel de
+edição, histórico separado e listas fixas nomeadas. Tarefas organiza
+recorrências diária, semanal, mensal e anual com progresso por ocorrência.
+A migração incremental está em
+`supabase/modulos-lista-compras-tarefas.sql`.
+
 O que resta nesta fase é consolidação: decidir sobre código morto,
 fechar decisões em aberto e alinhar os documentos oficiais.
 
@@ -28,7 +34,8 @@ Antes desta fase, foram concluídas:
 - Fase 2 — Esqueleto do projeto
 - Fase 3 — Autenticação
 - Fase 4 — Household / Família
-- Fase 5 (parcial) — Módulo Financeiro funcionando
+- Fase 5 — Módulo Financeiro funcionando
+- Fase 6 — Lista de Mercado e Tarefas implementados; aplicar migração no Supabase e validar ambiente integrado
 
 ## 2. Em andamento agora
 

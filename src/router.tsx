@@ -13,6 +13,7 @@ import AceitarConvitePage from './core/household/pages/AceitarConvitePage';
 import PerfilPage from './core/usuarios/pages/PerfilPage';
 import DashboardPage from './modules/financeiro/pages/DashboardPage';
 import ListaMercadoPage from './modules/lista-mercado/pages/ListaMercadoPage';
+import TarefasPage from './modules/tarefas/pages/TarefasPage';
 
 export const router = createBrowserRouter([
   // ---------- Rotas públicas ----------
@@ -40,6 +41,7 @@ export const router = createBrowserRouter([
               { index: true, element: <HomePage /> },
               { path: 'financeiro', element: <DashboardPage /> },
               { path: 'lista-mercado', element: <ListaMercadoPage /> },
+              { path: 'tarefas', element: <TarefasPage /> },
               { path: 'perfil', element: <PerfilPage /> },
             ],
           },

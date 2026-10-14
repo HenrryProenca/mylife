@@ -5,13 +5,12 @@
 > para a escrita dos documentos oficiais (PRD, ARCHITECTURE, RULES,
 > DESIGN, TASK, MEMORY).
 >
-> Última atualização: 2026-10-01
+> Última atualização: 2026-10-14
 
 ## 1. Visão geral
 
 - Produto: MyLife — suíte pessoal de organização de vida
-- Módulo oficial ativo: Financeiro
-- Módulo experimental (não oficial): Lista de Mercado
+- Módulos ativos: Financeiro, Lista de Mercado e Tarefas
 - Home autenticada: resumo semanal do tempo de uso da plataforma
 - Stack: Vite + React 18 + TypeScript + Tailwind + Supabase +
   TanStack Query + React Router v6
@@ -90,9 +89,17 @@
         - `transacoes.types.ts`
       - `utils/`
         - `seedCategorias.ts`
-    - `lista-mercado/` (experimental)
+    - `lista-mercado/`
       - `pages/`
         - `ListaMercadoPage.tsx`
+      - `hooks/` — `useListaMercado.ts`
+      - `services/` — `listaMercado.service.ts`
+      - `types/` — `listaMercado.types.ts`
+    - `tarefas/`
+      - `pages/` — `TarefasPage.tsx`
+      - `hooks/` — `useTarefas.ts`
+      - `services/` — `tarefas.service.ts`
+      - `types/` — `tarefas.types.ts`
   - `components/`
     - `ui/`
       - `Badge.tsx`
@@ -147,7 +154,8 @@
 ### Protegidas (auth + household, dentro do AppShell)
 - `/` (index) → HomePage
 - `/financeiro` → DashboardPage
-- `/lista-mercado` → ListaMercadoPage (experimental)
+- `/lista-mercado` → ListaMercadoPage (lista reutilizável, listas fixas e histórico separado)
+- `/tarefas` → TarefasPage (recorrências e progresso)
 - `/perfil` → PerfilPage
 
 ### Fallback

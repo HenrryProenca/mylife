@@ -59,6 +59,20 @@ A promessa em uma frase: "sua vida em ordem, num só lugar".
 - Exportar lançamentos detalhados em CSV compatível com Excel
 - Gerenciar categorias sem sair do dashboard (via modal)
 
+### Lista de Mercado (ativo)
+
+- Manter uma lista reutilizável de produtos com quantidade, unidade, preço e observação; itens podem ser incluídos, editados e removidos num painel próprio
+- Marcar produtos comprados diretamente na lista e informar a data da compra
+- Acompanhar o total dos itens marcados como comprados (quantidade × preço unitário)
+- Registrar compras datadas e consultar/excluir cada registro numa tela de histórico separada, com ação para voltar à lista
+- Salvar listas fixas nomeadas e aplicá-las novamente para evitar recadastrar os produtos
+
+### Tarefas (ativo)
+
+- Cadastrar tarefas diárias, semanais, mensais e anuais
+- Definir dia da semana, dia do mês ou data anual para cada recorrência
+- Acompanhar o progresso das tarefas previstas para o dia e guardar conclusões por ocorrência
+
 ### Gestão de família (transversal)
 
 Compartilhada por todos os módulos:

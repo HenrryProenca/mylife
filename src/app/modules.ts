@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { ShoppingCart, Wallet } from 'lucide-react';
+import { CalendarCheck2, ShoppingCart, Wallet } from 'lucide-react';
 
 export interface MyLifeModule {
   id: string;
@@ -22,6 +22,13 @@ export const MYLIFE_MODULES: MyLifeModule[] = [
     label: 'Lista de Mercado',
     icon: ShoppingCart,
     path: '/lista-mercado',
+    enabled: true,
+  },
+  {
+    id: 'tarefas',
+    label: 'Tarefas',
+    icon: CalendarCheck2,
+    path: '/tarefas',
     enabled: true,
   },
   // Futuros:
